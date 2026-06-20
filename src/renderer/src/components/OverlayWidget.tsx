@@ -52,7 +52,7 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
       {/* Header bar (Draggable) */}
       <div
         className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/10 select-none bg-white/5 cursor-move"
-        style={{ WebAppRegion: 'drag', pointerEvents: 'auto' } as any}
+        style={{ WebkitAppRegion: 'drag', pointerEvents: 'auto' } as any}
       >
         <div className="flex items-center gap-1.5 select-none">
           {/* Logo icon */}
@@ -61,7 +61,7 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
         </div>
 
         {/* Action Controls (No-drag so they are clickable) */}
-        <div className="flex items-center gap-1" style={{ WebAppRegion: 'no-drag' } as any}>
+        <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
           {/* Clear history button */}
           {!isCollapsed && mode === 'chat' && (
             <button
