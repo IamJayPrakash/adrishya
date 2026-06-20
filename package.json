@@ -1,7 +1,7 @@
 {
   "name": "adrishya",
   "version": "1.0.0",
-  "description": "Adrishe - Private Frosted Overlay AI Desktop Assistant",
+  "description": "Adrishya - Private Frosted Overlay AI Desktop Assistant",
   "main": "./out/main/index.js",
   "author": "Jay Prakash",
   "homepage": "https://github.com/IamJayPrakash/adrishya",

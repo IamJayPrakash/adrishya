@@ -163,7 +163,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               <Sparkles className="text-indigo-400" size={24} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-200">Welcome to Adrishe</p>
+              <p className="text-xs font-semibold text-gray-200">Welcome to Adrishya</p>
               <p className="text-[10px] text-gray-500 mt-1 max-w-[200px]">Ask a question, start voice recording, or analyze your screen contents.</p>
             </div>
           </div>
@@ -186,7 +186,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 <FormattedMessage content={msg.content} fontSize={fontSize} />
               </div>
               <span className="text-[8px] text-gray-500 mt-1 select-none">
-                {isUser ? 'You' : 'Adrishe'}
+                {isUser ? 'You' : 'Adrishya'}
               </span>
             </div>
           )
@@ -199,7 +199,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
               <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
             </div>
-            <span className="text-[8px] text-gray-500 mt-1 select-none">Adrishe is thinking...</span>
+            <span className="text-[8px] text-gray-500 mt-1 select-none">Adrishya is thinking...</span>
           </div>
         )}
         <div ref={messagesEndRef} />

@@ -1,5 +1,6 @@
 import React from 'react'
 import { MessageSquare, Mic, Camera, Settings, Maximize2, Minimize2, Trash2 } from 'lucide-react'
+import logo from '../assets/logo.png'
 
 interface OverlayWidgetProps {
   mode: 'chat' | 'voice' | 'screen' | 'settings'
@@ -53,10 +54,10 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
         className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/10 select-none bg-white/5 cursor-move"
         style={{ WebAppRegion: 'drag', pointerEvents: 'auto' } as any}
       >
-        <div className="flex items-center gap-1.5">
-          {/* Accent dot indicator */}
-          <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
-          <span className="text-[11px] font-bold tracking-wide text-white uppercase font-sans">Adrishe</span>
+        <div className="flex items-center gap-1.5 select-none">
+          {/* Logo icon */}
+          <img src={logo} alt="Adrishya Logo" className="w-4 h-4 rounded-md object-cover" />
+          <span className="text-[11px] font-bold tracking-wide text-white uppercase font-sans">Adrishya</span>
         </div>
 
         {/* Action Controls (No-drag so they are clickable) */}
