@@ -32,9 +32,10 @@ function createWindow(): void {
     show: false,
     frame: false, // Frameless window
     transparent: true, // Transparent window for glassmorphism
+    backgroundColor: '#00000000', // Set transparent background color to prevent solid black overlay on Windows
     alwaysOnTop: true, // Floats above all other apps
     skipTaskbar: true, // Invisible in taskbar
-    hasShadow: true,
+    hasShadow: false, // Disable native shadow to prevent rendering artifacts/black backgrounds on Windows
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

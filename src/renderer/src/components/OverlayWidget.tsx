@@ -40,13 +40,28 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
     }
 
     if (theme === 'light') {
-      return { ...baseStyle, background: `rgba(255, 255, 255, ${opacity * 0.65})` }
+      return {
+        ...baseStyle,
+        background: `rgba(255, 255, 255, ${opacity * 0.65})`,
+        border: `1px solid rgba(255, 255, 255, ${opacity * 0.4})`,
+        boxShadow: `0 8px 32px 0 rgba(31, 38, 135, ${opacity * 0.08})`
+      }
     }
     if (theme === 'amoled') {
-      return { ...baseStyle, background: `rgba(0, 0, 0, ${opacity * 0.95})` }
+      return {
+        ...baseStyle,
+        background: `rgba(0, 0, 0, ${opacity * 0.95})`,
+        border: `1px solid rgba(255, 255, 255, ${opacity * 0.04})`,
+        boxShadow: `0 8px 32px 0 rgba(0, 0, 0, ${opacity * 0.8})`
+      }
     }
     // Dark theme (default)
-    return { ...baseStyle, background: `rgba(18, 20, 26, ${opacity * 0.65})` }
+    return {
+      ...baseStyle,
+      background: `rgba(18, 20, 26, ${opacity * 0.65})`,
+      border: `1px solid rgba(255, 255, 255, ${opacity * 0.08})`,
+      boxShadow: `0 8px 32px 0 rgba(0, 0, 0, ${opacity * 0.37})`
+    }
   }
 
   // Handle Collapsing and Resizing
@@ -70,8 +85,13 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
     >
       {/* Header bar (Draggable) */}
       <div
-        className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/10 select-none bg-white/5 cursor-move"
-        style={{ WebkitAppRegion: 'drag', pointerEvents: 'auto' } as any}
+        className="flex items-center justify-between px-3.5 py-2.5 border-b select-none cursor-move"
+        style={{
+          WebkitAppRegion: 'drag',
+          pointerEvents: 'auto',
+          backgroundColor: `rgba(255, 255, 255, ${opacity * 0.05})`,
+          borderBottomColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+        } as any}
       >
         <div className="flex items-center gap-1.5 select-none">
           {/* Logo icon */}

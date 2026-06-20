@@ -234,6 +234,7 @@ function App(): React.JSX.Element {
           activeModel={getActiveConfig().model}
           isGenerating={isGenerating}
           fontSize={fontSize}
+          opacity={opacity}
           transcriptionMode={transcriptionMode}
           whisperProvider={whisperProvider}
           whisperApiKey={getWhisperKey()}

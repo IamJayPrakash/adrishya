@@ -13,6 +13,7 @@ interface ChatPanelProps {
   activeModel: string
   isGenerating: boolean
   fontSize: number
+  opacity: number
   transcriptionMode: 'local' | 'api'
   whisperProvider: 'groq' | 'openai'
   whisperApiKey: string
@@ -127,6 +128,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   activeModel,
   isGenerating,
   fontSize,
+  opacity,
   transcriptionMode,
   whisperProvider,
   whisperApiKey
@@ -416,7 +418,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   return (
     <div className="flex flex-col h-full flex-grow overflow-hidden">
       {/* Active Model Indicator */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10 text-[10px] text-gray-400 select-none bg-black/10">
+      <div
+        className="flex items-center justify-between px-3 py-1.5 border-b text-[10px] text-gray-400 select-none"
+        style={{
+          backgroundColor: `rgba(0, 0, 0, ${opacity * 0.1})`,
+          borderBottomColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+        }}
+      >
         <div className="flex items-center gap-1.5">
           <Sparkles size={11} className="text-indigo-400 animate-pulse" />
           <span>Using: <strong className="text-gray-200 capitalize">{activeProvider}</strong> ({activeModel})</span>
@@ -454,9 +462,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               <div
                 className={`max-w-[85%] rounded-2xl px-3 py-2 ${
                   isUser
-                    ? 'bg-indigo-600 text-white rounded-br-none shadow-md shadow-indigo-600/10'
-                    : 'bg-white/5 border border-white/10 rounded-bl-none'
+                    ? 'text-white rounded-br-none shadow-md'
+                    : 'rounded-bl-none border'
                 }`}
+                style={isUser ? {
+                  backgroundColor: `rgba(79, 70, 229, ${opacity * 0.85})`,
+                  boxShadow: `0 4px 6px -1px rgba(79, 70, 229, ${opacity * 0.2})`
+                } : {
+                  backgroundColor: `rgba(255, 255, 255, ${opacity * 0.05})`,
+                  borderColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+                }}
               >
                 <FormattedMessage content={msg.content} fontSize={fontSize} />
               </div>
@@ -469,7 +484,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
         {isGenerating && (
           <div className="flex flex-col items-start">
-            <div className="bg-white/5 border border-white/10 rounded-2xl rounded-bl-none px-3 py-2 flex items-center gap-1">
+            <div
+              className="border rounded-2xl rounded-bl-none px-3 py-2 flex items-center gap-1"
+              style={{
+                backgroundColor: `rgba(255, 255, 255, ${opacity * 0.05})`,
+                borderColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+              }}
+            >
               <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
               <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
               <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
@@ -481,10 +502,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
 
       {/* Dynamic Status Bars (Voice, Screen OCR, Errors) */}
-      <div className="flex flex-col bg-black/10">
+      <div
+        className="flex flex-col"
+        style={{
+          backgroundColor: `rgba(0, 0, 0, ${opacity * 0.1})`
+        }}
+      >
         {/* Voice recording status bar */}
         {isRecording && (
-          <div className="mx-3 mt-2 p-2.5 bg-indigo-950/40 border border-indigo-500/20 rounded-xl flex items-center justify-between text-[10px] animate-fade-in select-none">
+          <div
+            className="mx-3 mt-2 p-2.5 border rounded-xl flex items-center justify-between text-[10px] animate-fade-in select-none"
+            style={{
+              backgroundColor: `rgba(30, 27, 75, ${opacity * 0.4})`,
+              borderColor: `rgba(99, 102, 241, ${opacity * 0.2})`
+            }}
+          >
             <div className="flex items-center gap-2 text-indigo-300 font-medium">
               {isRecordingPaused ? (
                 <MicOff size={12} className="text-yellow-400" />
@@ -516,7 +548,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
         {/* Screen OCR Captured context bar */}
         {ocrText && (
-          <div className="mx-3 mt-2 p-2.5 bg-black/40 border border-white/10 rounded-xl flex flex-col gap-2 text-[10px] animate-fade-in">
+          <div
+            className="mx-3 mt-2 p-2.5 border rounded-xl flex flex-col gap-2 text-[10px] animate-fade-in"
+            style={{
+              backgroundColor: `rgba(0, 0, 0, ${opacity * 0.4})`,
+              borderColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+            }}
+          >
             <div className="flex justify-between items-center select-none text-gray-400">
               <span className="font-mono flex items-center gap-1 text-indigo-300">
                 <FileText size={11} />
@@ -541,7 +579,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 </button>
               </div>
             </div>
-            <div className="max-h-16 overflow-y-auto font-mono text-[9px] bg-black/40 p-1.5 rounded text-gray-300 border border-white/5 whitespace-pre-wrap select-text scrollbar-thin">
+            <div
+              className="max-h-16 overflow-y-auto font-mono text-[9px] p-1.5 rounded text-gray-300 border whitespace-pre-wrap select-text scrollbar-thin"
+              style={{
+                backgroundColor: `rgba(0, 0, 0, ${opacity * 0.4})`,
+                borderColor: `rgba(255, 255, 255, ${opacity * 0.05})`
+              }}
+            >
               {ocrText}
             </div>
             <div className="flex gap-1.5 select-none">
@@ -574,7 +618,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
         {/* Error message bar */}
         {(ocrError || voiceError) && (
-          <div className="mx-3 mt-2 p-2 bg-red-950/40 border border-red-500/20 text-red-300 rounded-xl text-[9px] flex gap-1.5 items-start animate-fade-in select-none">
+          <div
+            className="mx-3 mt-2 p-2 border text-red-300 rounded-xl text-[9px] flex gap-1.5 items-start animate-fade-in select-none"
+            style={{
+              backgroundColor: `rgba(69, 10, 10, ${opacity * 0.4})`,
+              borderColor: `rgba(239, 68, 68, ${opacity * 0.2})`
+            }}
+          >
             <AlertCircle size={12} className="shrink-0 mt-0.5 text-red-400" />
             <div className="flex-1">
               <p>{ocrError || voiceError}</p>
@@ -590,8 +640,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
 
       {/* Input box */}
-      <div className="p-3 border-t border-white/10 bg-black/20">
-        <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all duration-200 pr-2 pl-3 py-1.5">
+      <div
+        className="p-3 border-t"
+        style={{
+          borderTopColor: `rgba(255, 255, 255, ${opacity * 0.1})`,
+          backgroundColor: `rgba(0, 0, 0, ${opacity * 0.2})`
+        }}
+      >
+        <div
+          className="relative flex items-center border rounded-xl focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all duration-200 pr-2 pl-3 py-1.5"
+          style={{
+            backgroundColor: `rgba(255, 255, 255, ${opacity * 0.05})`,
+            borderColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+          }}
+        >
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
