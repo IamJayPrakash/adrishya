@@ -51,6 +51,7 @@ function createWindow(): void {
   }
 
   // Set Content Protection (makes the window black/invisible during screen share)
+  mainWindow.setAlwaysOnTop(true, 'screen-saver') // Stay on top of full-screen browsers/games
   mainWindow.setContentProtection(true)
 
   mainWindow.on('ready-to-show', () => {

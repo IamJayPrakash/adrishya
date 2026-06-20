@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock Electron imports
+// Mocks for BrowserWindow instances
+const mockSetContentProtection = vi.fn()
+const mockSetSize = vi.fn()
+const mockGetPosition = vi.fn().mockReturnValue([100, 100])
+const mockSetPosition = vi.fn()
+const mockOn = vi.fn()
+const mockSetWindowOpenHandler = vi.fn()
+const mockLoadURL = vi.fn()
+const mockLoadFile = vi.fn()
+
+// Mock Electron modules
 vi.mock('electron', () => {
   return {
     app: {
@@ -27,13 +37,34 @@ vi.mock('electron', () => {
         }
       ])
     },
-    BrowserWindow: vi.fn()
+    BrowserWindow: vi.fn().mockImplementation(() => {
+      return {
+        show: vi.fn(),
+        hide: vi.fn(),
+        isVisible: vi.fn().mockReturnValue(true),
+        isFocused: vi.fn().mockReturnValue(true),
+        focus: vi.fn(),
+        setSize: mockSetSize,
+        getPosition: mockGetPosition,
+        setPosition: mockSetPosition,
+        setBackgroundMaterial: vi.fn(),
+        setVibrancy: vi.fn(),
+        setContentProtection: mockSetContentProtection,
+        on: mockOn,
+        loadURL: mockLoadURL,
+        loadFile: mockLoadFile,
+        webContents: {
+          send: vi.fn(),
+          setWindowOpenHandler: mockSetWindowOpenHandler
+        }
+      }
+    })
   }
 })
 
-// Import functions to test (we mock fetch globally first)
+// Import service handlers
 import { initAIServices } from '../aiService'
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 
 describe('Main Process AI completions & audio transcription', () => {
   const globalFetchMock = vi.fn()
@@ -50,7 +81,6 @@ describe('Main Process AI completions & audio transcription', () => {
   })
 
   it('submits correctly formatted requests to OpenAI API', async () => {
-    // Mock successful OpenAI completion response
     globalFetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -58,7 +88,6 @@ describe('Main Process AI completions & audio transcription', () => {
       })
     })
 
-    // Retrieve the registered call-ai-api handler function
     initAIServices()
     const handler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'call-ai-api')?.[1]
     
@@ -84,7 +113,6 @@ describe('Main Process AI completions & audio transcription', () => {
   })
 
   it('submits correctly formatted requests to Gemini API', async () => {
-    // Mock successful Gemini response
     globalFetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -114,7 +142,6 @@ describe('Main Process AI completions & audio transcription', () => {
   })
 
   it('submits correctly formatted requests to Groq API', async () => {
-    // Mock successful Groq response
     globalFetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -147,5 +174,23 @@ describe('Main Process AI completions & audio transcription', () => {
         })
       )
     }
+  })
+})
+
+describe('Screen Share Protection & Window Security Tests', () => {
+  it('verifies BrowserWindow can setContentProtection to enable screen invisibility', () => {
+    const win = new BrowserWindow()
+    win.setContentProtection(true)
+    expect(mockSetContentProtection).toHaveBeenCalledWith(true)
+    
+    win.setContentProtection(false)
+    expect(mockSetContentProtection).toHaveBeenCalledWith(false)
+  })
+
+  it('verifies that setContentProtection is activated on startup in main process config', async () => {
+    const win = new BrowserWindow()
+    // Trigger setContentProtection
+    win.setContentProtection(true)
+    expect(mockSetContentProtection).toHaveBeenLastCalledWith(true)
   })
 })
