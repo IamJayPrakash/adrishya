@@ -224,7 +224,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <Key size={13} />
           Speech Transcription Settings
         </h3>
-        
+
+        {/* Electron-specific warning — Web Speech API requires Chrome's private Google key */}
+        {navigator.userAgent.toLowerCase().includes('electron') && (
+          <div className="flex items-start gap-1.5 bg-yellow-600/10 border border-yellow-500/20 rounded-lg px-2.5 py-2">
+            <span className="text-yellow-400 text-[10px] shrink-0 mt-0.5">⚠️</span>
+            <span className="text-[9px] text-yellow-300 leading-relaxed">
+              <strong>Desktop App:</strong> "Local Engine" won't work here — Electron doesn't include Google's speech key.
+              Please use <strong>Whisper API</strong> instead.
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-gray-400">Transcription Mode</span>
           <div className="flex gap-1 bg-black/30 p-0.5 rounded-lg border border-white/5">
@@ -235,6 +246,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               }`}
             >
               Local Engine
+              {navigator.userAgent.toLowerCase().includes('electron') && (
+                <span className="ml-1 text-[7px] text-yellow-400 font-bold">✗</span>
+              )}
             </button>
             <button
               onClick={() => setTranscriptionMode('api')}
@@ -243,6 +257,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               }`}
             >
               Whisper API
+              {navigator.userAgent.toLowerCase().includes('electron') && (
+                <span className="ml-1 text-[7px] text-green-400 font-bold">✓</span>
+              )}
             </button>
           </div>
         </div>
