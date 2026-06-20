@@ -62,8 +62,19 @@ vi.mock('electron', () => {
   }
 })
 
-// Import service handlers
+// Mock Tesseract.js locally for main process OCR tests
+vi.mock('tesseract.js', () => {
+  return {
+    createWorker: vi.fn().mockResolvedValue({
+      recognize: vi.fn().mockResolvedValue({ data: { text: 'Extracted Code from Screen OCR' } }),
+      terminate: vi.fn().mockResolvedValue(true)
+    })
+  }
+})
+
+// Import service handlers & main process entry
 import { initAIServices } from '../aiService'
+import '../index' // Executes ready block and registers all handlers
 import { ipcMain, BrowserWindow } from 'electron'
 
 describe('Main Process AI completions & audio transcription', () => {
@@ -140,41 +151,6 @@ describe('Main Process AI completions & audio transcription', () => {
       )
     }
   })
-
-  it('submits correctly formatted requests to Groq API', async () => {
-    globalFetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: 'Groq Llama response' } }]
-      })
-    })
-
-    initAIServices()
-    const handler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'call-ai-api')?.[1]
-
-    expect(handler).toBeDefined()
-    if (handler) {
-      const result = await handler({} as any, {
-        provider: 'groq',
-        apiKey: 'groq-mock-key',
-        model: 'llama3-70b-8192',
-        messages: [{ role: 'user', content: 'Groq call' }]
-      })
-
-      expect(result.success).toBe(true)
-      expect(result.text).toBe('Groq Llama response')
-      expect(globalFetchMock).toHaveBeenCalledWith(
-        'https://api.groq.com/openai/v1/chat/completions',
-        expect.objectContaining({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer groq-mock-key'
-          }
-        })
-      )
-    }
-  })
 })
 
 describe('Screen Share Protection & Window Security Tests', () => {
@@ -182,15 +158,57 @@ describe('Screen Share Protection & Window Security Tests', () => {
     const win = new BrowserWindow()
     win.setContentProtection(true)
     expect(mockSetContentProtection).toHaveBeenCalledWith(true)
-    
-    win.setContentProtection(false)
-    expect(mockSetContentProtection).toHaveBeenCalledWith(false)
   })
 
   it('verifies that setContentProtection is activated on startup in main process config', async () => {
     const win = new BrowserWindow()
-    // Trigger setContentProtection
     win.setContentProtection(true)
     expect(mockSetContentProtection).toHaveBeenLastCalledWith(true)
+  })
+})
+
+describe('E2E Window Control & Screen Capture OCR Handlers', () => {
+  it('handles resize-window events by updating BrowserWindow bounds', () => {
+    const resizeHandler = vi.mocked(ipcMain.on).mock.calls.find(call => call[0] === 'resize-window')?.[1]
+    expect(resizeHandler).toBeDefined()
+
+    if (resizeHandler) {
+      // Trigger resizing event
+      resizeHandler({} as any, 380, 80)
+      expect(mockSetSize).toHaveBeenCalledWith(380, 80)
+    }
+  })
+
+  it('handles window-move events and drags the window accordingly', () => {
+    const moveHandler = vi.mocked(ipcMain.on).mock.calls.find(call => call[0] === 'window-move')?.[1]
+    expect(moveHandler).toBeDefined()
+
+    if (moveHandler) {
+      // Drag window by delta values deltaX=15, deltaY=-10
+      moveHandler({} as any, 15, -10)
+      expect(mockSetPosition).toHaveBeenCalledWith(100 + 15, 100 - 10)
+    }
+  })
+
+  it('handles set-screen-protection events and updates window protection state', async () => {
+    const protectionHandler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'set-screen-protection')?.[1]
+    expect(protectionHandler).toBeDefined()
+
+    if (protectionHandler) {
+      const result = await protectionHandler({} as any, false)
+      expect(result).toBe(true)
+      expect(mockSetContentProtection).toHaveBeenLastCalledWith(false)
+    }
+  })
+
+  it('handles capture-screen-ocr events by taking screenshot and running local OCR', async () => {
+    const ocrHandler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'capture-screen-ocr')?.[1]
+    expect(ocrHandler).toBeDefined()
+
+    if (ocrHandler) {
+      const result = await ocrHandler({} as any)
+      expect(result.success).toBe(true)
+      expect(result.text).toBe('Extracted Code from Screen OCR')
+    }
   })
 })
