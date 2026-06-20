@@ -1,25 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mocks for BrowserWindow instances
-const mockSetContentProtection = vi.fn()
-const mockSetSize = vi.fn()
-const mockGetPosition = vi.fn().mockReturnValue([100, 100])
-const mockSetPosition = vi.fn()
-const mockOn = vi.fn()
-const mockSetWindowOpenHandler = vi.fn()
-const mockLoadURL = vi.fn()
-const mockLoadFile = vi.fn()
+// Hoist variables before modules are imported and executed
+const { mockSetSize, mockSetPosition, mockSetContentProtection, mockGetPosition, ipcHandlers, ipcListeners } = vi.hoisted(() => ({
+  mockSetSize: vi.fn(),
+  mockSetPosition: vi.fn(),
+  mockSetContentProtection: vi.fn(),
+  mockGetPosition: vi.fn().mockReturnValue([100, 100]),
+  ipcHandlers: new Map<string, any>(),
+  ipcListeners: new Map<string, any>()
+}))
 
 // Mock Electron modules
 vi.mock('electron', () => {
+  const mockOn = vi.fn()
+  const mockSetWindowOpenHandler = vi.fn()
+  const mockLoadURL = vi.fn()
+  const mockLoadFile = vi.fn()
+
   return {
     app: {
       whenReady: vi.fn().mockResolvedValue(true),
       on: vi.fn(),
+      quit: vi.fn()
+    },
+    shell: {
+      openExternal: vi.fn()
     },
     ipcMain: {
-      handle: vi.fn(),
-      on: vi.fn(),
+      handle: vi.fn().mockImplementation((channel, listener) => {
+        ipcHandlers.set(channel, listener)
+      }),
+      on: vi.fn().mockImplementation((channel, listener) => {
+        ipcListeners.set(channel, listener)
+      }),
     },
     globalShortcut: {
       register: vi.fn(),
@@ -47,6 +60,7 @@ vi.mock('electron', () => {
         setSize: mockSetSize,
         getPosition: mockGetPosition,
         setPosition: mockSetPosition,
+        setAlwaysOnTop: vi.fn(),
         setBackgroundMaterial: vi.fn(),
         setVibrancy: vi.fn(),
         setContentProtection: mockSetContentProtection,
@@ -59,6 +73,28 @@ vi.mock('electron', () => {
         }
       }
     })
+  }
+})
+
+// Mock electron toolkit utils
+vi.mock('@electron-toolkit/utils', () => {
+  return {
+    electronApp: {
+      setAppUserModelId: vi.fn()
+    },
+    optimizer: {
+      watchWindowShortcuts: vi.fn()
+    },
+    is: {
+      dev: true
+    }
+  }
+})
+
+// Mock image asset query parameter imports for JSDOM compatibility
+vi.mock('../../resources/icon.png?asset', () => {
+  return {
+    default: 'mock-icon-path'
   }
 })
 
@@ -75,7 +111,7 @@ vi.mock('tesseract.js', () => {
 // Import service handlers & main process entry
 import { initAIServices } from '../aiService'
 import '../index' // Executes ready block and registers all handlers
-import { ipcMain, BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 
 describe('Main Process AI completions & audio transcription', () => {
   const globalFetchMock = vi.fn()
@@ -87,8 +123,8 @@ describe('Main Process AI completions & audio transcription', () => {
 
   it('registers call-ai-api and transcribe-audio IPC handlers', () => {
     initAIServices()
-    expect(ipcMain.handle).toHaveBeenCalledWith('call-ai-api', expect.any(Function))
-    expect(ipcMain.handle).toHaveBeenCalledWith('transcribe-audio', expect.any(Function))
+    expect(ipcHandlers.get('call-ai-api')).toBeDefined()
+    expect(ipcHandlers.get('transcribe-audio')).toBeDefined()
   })
 
   it('submits correctly formatted requests to OpenAI API', async () => {
@@ -100,7 +136,7 @@ describe('Main Process AI completions & audio transcription', () => {
     })
 
     initAIServices()
-    const handler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'call-ai-api')?.[1]
+    const handler = ipcHandlers.get('call-ai-api')
     
     expect(handler).toBeDefined()
     if (handler) {
@@ -132,7 +168,7 @@ describe('Main Process AI completions & audio transcription', () => {
     })
 
     initAIServices()
-    const handler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'call-ai-api')?.[1]
+    const handler = ipcHandlers.get('call-ai-api')
 
     expect(handler).toBeDefined()
     if (handler) {
@@ -168,8 +204,13 @@ describe('Screen Share Protection & Window Security Tests', () => {
 })
 
 describe('E2E Window Control & Screen Capture OCR Handlers', () => {
+  beforeEach(async () => {
+    // Wait for the async app.whenReady().then() callback in main/index.ts to run and register handlers
+    await new Promise(resolve => setTimeout(resolve, 20))
+  })
+
   it('handles resize-window events by updating BrowserWindow bounds', () => {
-    const resizeHandler = vi.mocked(ipcMain.on).mock.calls.find(call => call[0] === 'resize-window')?.[1]
+    const resizeHandler = ipcListeners.get('resize-window')
     expect(resizeHandler).toBeDefined()
 
     if (resizeHandler) {
@@ -180,18 +221,18 @@ describe('E2E Window Control & Screen Capture OCR Handlers', () => {
   })
 
   it('handles window-move events and drags the window accordingly', () => {
-    const moveHandler = vi.mocked(ipcMain.on).mock.calls.find(call => call[0] === 'window-move')?.[1]
+    const moveHandler = ipcListeners.get('window-move')
     expect(moveHandler).toBeDefined()
 
     if (moveHandler) {
-      // Drag window by delta values deltaX=15, deltaY=-10
+      // Drag window by deltaX=15, deltaY=-10
       moveHandler({} as any, 15, -10)
       expect(mockSetPosition).toHaveBeenCalledWith(100 + 15, 100 - 10)
     }
   })
 
   it('handles set-screen-protection events and updates window protection state', async () => {
-    const protectionHandler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'set-screen-protection')?.[1]
+    const protectionHandler = ipcHandlers.get('set-screen-protection')
     expect(protectionHandler).toBeDefined()
 
     if (protectionHandler) {
@@ -202,7 +243,7 @@ describe('E2E Window Control & Screen Capture OCR Handlers', () => {
   })
 
   it('handles capture-screen-ocr events by taking screenshot and running local OCR', async () => {
-    const ocrHandler = vi.mocked(ipcMain.handle).mock.calls.find(call => call[0] === 'capture-screen-ocr')?.[1]
+    const ocrHandler = ipcHandlers.get('capture-screen-ocr')
     expect(ocrHandler).toBeDefined()
 
     if (ocrHandler) {
