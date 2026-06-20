@@ -1,6 +1,6 @@
-# Contributing to Adrishe
+# Contributing to Adrishya
 
-Thank you for your interest in contributing to **Adrishe**! We welcome bug reports, feature suggestions, and pull requests to help make this the best private desktop AI overlay.
+Thank you for your interest in contributing to **Adrishya**! We welcome bug reports, feature suggestions, and pull requests to help make this the best private desktop AI overlay.
 
 ## Development Setup
 
