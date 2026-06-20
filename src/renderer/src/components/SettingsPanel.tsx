@@ -10,6 +10,8 @@ interface SettingsPanelProps {
   setFontSize: (val: number) => void
   theme: 'light' | 'dark' | 'amoled'
   setTheme: (val: 'light' | 'dark' | 'amoled') => void
+  showModelIndicator: boolean
+  setShowModelIndicator: (val: boolean) => void
   screenProtection: boolean
   setScreenProtection: (val: boolean) => void
   transcriptionMode: 'local' | 'api'
@@ -55,6 +57,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setFontSize,
   theme,
   setTheme,
+  showModelIndicator,
+  setShowModelIndicator,
   screenProtection,
   setScreenProtection,
   transcriptionMode,
@@ -163,6 +167,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Show Active Model Indicator toggle */}
+        <div className="flex items-center justify-between pt-1 select-none">
+          <div className="flex flex-col gap-0.5 pr-2">
+            <span className="text-[10px] text-gray-300 font-medium">Show Active Model Indicator</span>
+            <span className="text-[8px] text-gray-500 leading-tight">Show the AI provider/model name bar at the top of chat</span>
+          </div>
+          <button
+            onClick={() => setShowModelIndicator(!showModelIndicator)}
+            className={`w-7 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none shrink-0 ${
+              showModelIndicator ? 'bg-indigo-600' : 'bg-white/10'
+            }`}
+          >
+            <div
+              className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${
+                showModelIndicator ? 'transform translate-x-3' : ''
+              }`}
+            />
+          </button>
         </div>
       </div>
 

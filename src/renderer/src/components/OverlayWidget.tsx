@@ -33,18 +33,20 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
   }
 
   // Get dynamic background style for true window transparency (fades bg color without text blur)
-  const getGlassStyle = () => {
-    const baseStyle = {
-      backdropFilter: `blur(${blur}px)`,
-      WebkitBackdropFilter: `blur(${blur}px)`
+  const getGlassStyle = (): React.CSSProperties => {
+    // Only apply backdrop filter when there is visible content and blur is configured
+    const isVisible = opacity > 0.01
+    const baseStyle: React.CSSProperties = {
+      backdropFilter: isVisible && blur > 0 ? `blur(${blur}px)` : 'none',
+      WebkitBackdropFilter: isVisible && blur > 0 ? `blur(${blur}px)` : 'none'
     }
 
     if (theme === 'light') {
       return {
         ...baseStyle,
-        background: `rgba(255, 255, 255, ${opacity * 0.65})`,
+        background: `rgba(255, 255, 255, ${opacity * 0.85})`,
         border: `1px solid rgba(255, 255, 255, ${opacity * 0.4})`,
-        boxShadow: `0 8px 32px 0 rgba(31, 38, 135, ${opacity * 0.08})`
+        boxShadow: isVisible ? `0 8px 32px 0 rgba(31, 38, 135, ${opacity * 0.08})` : 'none'
       }
     }
     if (theme === 'amoled') {
@@ -52,15 +54,15 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
         ...baseStyle,
         background: `rgba(0, 0, 0, ${opacity * 0.95})`,
         border: `1px solid rgba(255, 255, 255, ${opacity * 0.04})`,
-        boxShadow: `0 8px 32px 0 rgba(0, 0, 0, ${opacity * 0.8})`
+        boxShadow: isVisible ? `0 8px 32px 0 rgba(0, 0, 0, ${opacity * 0.8})` : 'none'
       }
     }
     // Dark theme (default)
     return {
       ...baseStyle,
-      background: `rgba(18, 20, 26, ${opacity * 0.65})`,
+      background: `rgba(18, 20, 26, ${opacity * 0.85})`,
       border: `1px solid rgba(255, 255, 255, ${opacity * 0.08})`,
-      boxShadow: `0 8px 32px 0 rgba(0, 0, 0, ${opacity * 0.37})`
+      boxShadow: isVisible ? `0 8px 32px 0 rgba(0, 0, 0, ${opacity * 0.37})` : 'none'
     }
   }
 
@@ -80,7 +82,7 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
 
   return (
     <div
-      className={`h-screen flex flex-col rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 border ${getGlassClass()}`}
+      className={`h-screen flex flex-col rounded-2xl overflow-hidden transition-all duration-300 ${getGlassClass()}`}
       style={getGlassStyle()}
     >
       {/* Header bar (Draggable) */}

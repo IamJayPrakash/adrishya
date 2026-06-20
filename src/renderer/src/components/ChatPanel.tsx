@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, Copy, Check, Mic, MicOff, Camera, AlertCircle, FileText, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Send, Sparkles, Copy, Check, Mic, MicOff, Camera, AlertCircle, FileText, X } from 'lucide-react'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -14,6 +14,7 @@ interface ChatPanelProps {
   isGenerating: boolean
   fontSize: number
   opacity: number
+  showModelIndicator: boolean
   transcriptionMode: 'local' | 'api'
   whisperProvider: 'groq' | 'openai'
   whisperApiKey: string
@@ -129,6 +130,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   isGenerating,
   fontSize,
   opacity,
+  showModelIndicator,
   transcriptionMode,
   whisperProvider,
   whisperApiKey
@@ -156,14 +158,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     return localStorage.getItem('adr_voice_loop_tts') === 'true'
   })
 
-  // Model indicator collapse state
-  const [isModelCollapsed, setIsModelCollapsed] = useState(() => {
-    return localStorage.getItem('adr_model_indicator_collapsed') === 'true'
-  })
-
-  useEffect(() => {
-    localStorage.setItem('adr_model_indicator_collapsed', String(isModelCollapsed))
-  }, [isModelCollapsed])
+  // Hover state for absolute floating Voice Loop panel
+  const [isVoiceLoopHovered, setIsVoiceLoopHovered] = useState(false)
 
   // Voice recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -620,39 +616,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full flex-grow overflow-hidden">
-      {/* Active Model Indicator */}
-      <div
-        className="flex items-center justify-between px-3 select-none transition-all duration-300 border-b"
-        style={{
-          paddingTop: isModelCollapsed ? '2px' : '6px',
-          paddingBottom: isModelCollapsed ? '2px' : '6px',
-          backgroundColor: `rgba(0, 0, 0, ${opacity * 0.1})`,
-          borderBottomColor: `rgba(255, 255, 255, ${opacity * 0.1})`
-        }}
-      >
-        <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
-          <Sparkles size={11} className="text-indigo-400 animate-pulse" />
-          {!isModelCollapsed && (
+    <div className="flex flex-col h-full flex-grow overflow-hidden relative">
+      {/* Active Model Indicator - controlled by showModelIndicator setting */}
+      {showModelIndicator && (
+        <div
+          className="flex items-center justify-between px-3 py-1.5 select-none border-b"
+          style={{
+            backgroundColor: `rgba(0, 0, 0, ${opacity * 0.1})`,
+            borderBottomColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+          }}
+        >
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+            <Sparkles size={11} className="text-indigo-400 animate-pulse" />
             <span>Using: <strong className="text-gray-200 capitalize">{activeProvider}</strong> ({activeModel})</span>
-          )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {isRecording && (
+              <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 font-bold uppercase tracking-wider animate-pulse">
+                Voice Active
+              </span>
+            )}
+          </div>
         </div>
-
-        <div className="flex items-center gap-1.5">
-          {!isModelCollapsed && isRecording && (
-            <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 font-bold uppercase tracking-wider animate-pulse">
-              Voice Active
-            </span>
-          )}
-          <button
-            onClick={() => setIsModelCollapsed(!isModelCollapsed)}
-            title={isModelCollapsed ? "Show Model Info" : "Hide Model Info"}
-            className="p-0.5 rounded text-gray-500 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
-          >
-            {isModelCollapsed ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Messages Panel */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4 scrollbar-thin">
@@ -857,61 +843,76 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         )}
       </div>
 
-      {/* Continuous Voice Loop Control Bar */}
+      {/* Absolute Floating Voice Loop Panel — hardware-accelerated slide from left edge */}
       <div
-        className="mx-3 mt-2 p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between text-[10px] animate-fade-in select-none"
+        onMouseEnter={() => setIsVoiceLoopHovered(true)}
+        onMouseLeave={() => setIsVoiceLoopHovered(false)}
         style={{
-          backgroundColor: `rgba(99, 102, 241, ${opacity * 0.08})`,
-          borderColor: `rgba(99, 102, 241, ${opacity * 0.15})`
+          transform: isVoiceLoopHovered ? 'translateX(0)' : 'translateX(-270px)',
+          transition: 'transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          willChange: 'transform',
+          opacity: Math.min(Math.max(opacity * 0.95 + 0.05, 0.1), 1)
         }}
+        className="absolute left-0 bottom-[95px] z-50 flex items-center w-[310px] h-10 rounded-r-xl border border-indigo-500/25 bg-indigo-950/90 backdrop-blur-md shadow-xl select-none cursor-pointer"
       >
-        <div className="flex items-center gap-1.5 font-medium text-indigo-300">
-          <Mic size={12} className={isVoiceLoopActive && !isRecordingPaused ? "animate-pulse text-indigo-400" : ""} />
-          <span>Voice Loop</span>
-          {isVoiceLoopActive && (
-            <span className={`text-[8px] px-1 py-0.2 rounded font-bold uppercase tracking-wider ${
-              isRecordingPaused ? 'bg-yellow-600/20 text-yellow-400' : isGenerating ? 'bg-blue-600/20 text-blue-400 animate-pulse' : 'bg-green-600/20 text-green-400 animate-pulse'
-            }`}>
-              {isRecordingPaused ? 'Paused' : isGenerating ? 'AI Generating' : 'Listening...'}
-            </span>
-          )}
+        {/* Left: Expanded Controls (fade in/out when hovered) */}
+        <div
+          className={`flex items-center justify-between pl-3 pr-1 flex-1 overflow-hidden transition-opacity duration-200 ${
+            isVoiceLoopHovered ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="flex items-center gap-1.5 font-medium text-indigo-300 shrink-0 text-[10px]">
+            <span>Voice Loop</span>
+            {isVoiceLoopActive && (
+              <span className={`text-[7px] px-1 py-0.5 rounded font-bold uppercase tracking-wider ${
+                isRecordingPaused ? 'bg-yellow-600/20 text-yellow-400' : isGenerating ? 'bg-blue-600/20 text-blue-400 animate-pulse' : 'bg-green-600/20 text-green-400 animate-pulse'
+              }`}>
+                {isRecordingPaused ? 'Paused' : isGenerating ? 'AI' : 'On'}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* TTS Toggle */}
+            <label className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors shrink-0">
+              <input
+                type="checkbox"
+                checked={isTTSActive}
+                onChange={(e) => setIsTTSActive(e.target.checked)}
+                className="rounded border-white/10 bg-black/40 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3 h-3 cursor-pointer"
+              />
+              <span className="text-[9px] text-gray-400">Speak</span>
+            </label>
+
+            {isVoiceLoopActive ? (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={handleVoiceLoopPauseToggle}
+                  className="px-1.5 py-0.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded border border-white/5 font-semibold cursor-pointer text-[8px]"
+                >
+                  {isRecordingPaused ? 'Resume' : 'Pause'}
+                </button>
+                <button
+                  onClick={handleVoiceLoopStop}
+                  className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded font-semibold cursor-pointer text-[8px]"
+                >
+                  Stop
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleVoiceLoopStart}
+                className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-semibold cursor-pointer text-[8px] shrink-0"
+              >
+                Start
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* TTS Toggle */}
-          <label className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors mr-1">
-            <input
-              type="checkbox"
-              checked={isTTSActive}
-              onChange={(e) => setIsTTSActive(e.target.checked)}
-              className="rounded border-white/10 bg-black/40 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3 h-3 cursor-pointer"
-            />
-            <span className="text-[9px] text-gray-400">Speak Responses (TTS)</span>
-          </label>
-
-          {isVoiceLoopActive ? (
-            <>
-              <button
-                onClick={handleVoiceLoopPauseToggle}
-                className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded border border-white/5 font-semibold cursor-pointer"
-              >
-                {isRecordingPaused ? 'Resume' : 'Pause'}
-              </button>
-              <button
-                onClick={handleVoiceLoopStop}
-                className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded font-semibold cursor-pointer"
-              >
-                Stop Loop
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={handleVoiceLoopStart}
-              className="px-2.5 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-semibold transition-all cursor-pointer shadow-md shadow-indigo-600/20"
-            >
-              Start Loop
-            </button>
-          )}
+        {/* Right: Mic icon handle — always visible as the collapsed tab (rightmost ~40px) */}
+        <div className="flex items-center justify-center w-10 h-full shrink-0 border-l border-indigo-500/20">
+          <Mic size={14} className={isVoiceLoopActive && !isRecordingPaused ? 'animate-pulse text-indigo-400' : 'text-indigo-300'} />
         </div>
       </div>
 

@@ -19,6 +19,7 @@ function App(): React.JSX.Element {
   const [fontSize, setFontSize] = useState(13)
   const [theme, setTheme] = useState<'light' | 'dark' | 'amoled'>('dark')
   const [screenProtection, setScreenProtection] = useState(true)
+  const [showModelIndicator, setShowModelIndicator] = useState(true)
 
   // Speech Transcription States
   const [transcriptionMode, setTranscriptionMode] = useState<'local' | 'api'>('local')
@@ -73,6 +74,11 @@ function App(): React.JSX.Element {
     const savedTheme = localStorage.getItem('adr_theme')
     if (savedTheme) setTheme(savedTheme as any)
 
+    const savedShowModelIndicator = localStorage.getItem('adr_show_model_indicator')
+    if (savedShowModelIndicator) {
+      setShowModelIndicator(savedShowModelIndicator === 'true')
+    }
+
     const savedProtection = localStorage.getItem('adr_screen_protection')
     if (savedProtection) {
       const enabled = savedProtection === 'true'
@@ -124,6 +130,7 @@ function App(): React.JSX.Element {
     localStorage.setItem('adr_blur', String(blur))
     localStorage.setItem('adr_font_size', String(fontSize))
     localStorage.setItem('adr_theme', theme)
+    localStorage.setItem('adr_show_model_indicator', String(showModelIndicator))
     localStorage.setItem('adr_transcription_mode', transcriptionMode)
     localStorage.setItem('adr_whisper_provider', whisperProvider)
 
@@ -241,6 +248,7 @@ function App(): React.JSX.Element {
           isGenerating={isGenerating}
           fontSize={fontSize}
           opacity={opacity}
+          showModelIndicator={showModelIndicator}
           transcriptionMode={transcriptionMode}
           whisperProvider={whisperProvider}
           whisperApiKey={getWhisperKey()}
@@ -257,6 +265,8 @@ function App(): React.JSX.Element {
           setFontSize={setFontSize}
           theme={theme}
           setTheme={setTheme}
+          showModelIndicator={showModelIndicator}
+          setShowModelIndicator={setShowModelIndicator}
           screenProtection={screenProtection}
           setScreenProtection={setScreenProtection}
           transcriptionMode={transcriptionMode}

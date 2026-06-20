@@ -146,7 +146,14 @@ app.whenReady().then(() => {
     if (mainWindow) {
       try {
         if (process.platform === 'win32') {
-          mainWindow.setBackgroundMaterial(enabled ? 'acrylic' : 'none')
+          if (enabled) {
+            mainWindow.setBackgroundMaterial('acrylic')
+          } else {
+            // Remove acrylic material, then re-assert full transparency so
+            // Windows DWM does NOT fall back to an opaque white background
+            mainWindow.setBackgroundMaterial('none')
+            mainWindow.setBackgroundColor('#00000000')
+          }
         } else if (process.platform === 'darwin') {
           mainWindow.setVibrancy(enabled ? 'under-window' : null)
         }
