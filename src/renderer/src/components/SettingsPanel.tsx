@@ -267,9 +267,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onChange={(e) => setGeminiModel(e.target.value)}
               className="bg-black/40 text-[9px] text-gray-300 border border-white/5 rounded px-1.5 py-0.5 max-w-[150px] focus:outline-none"
             >
+              <option value="gemini-flash-latest">gemini-flash-latest</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
               <option value="gemini-1.5-flash">gemini-1.5-flash</option>
               <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-              <option value="gemini-2.0-flash-exp">gemini-2.0-flash</option>
             </select>
           </div>
           <input

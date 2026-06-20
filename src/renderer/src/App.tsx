@@ -35,7 +35,7 @@ function App(): React.JSX.Element {
   // Selected Active Models States
   const [activeProvider, setActiveProvider] = useState<'openai' | 'gemini' | 'claude' | 'groq' | 'grok'>('gemini')
   const [openaiModel, setOpenaiModel] = useState('gpt-4o-mini')
-  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash')
+  const [geminiModel, setGeminiModel] = useState('gemini-flash-latest')
   const [claudeModel, setClaudeModel] = useState('claude-3-5-sonnet-20241022')
   const [groqModel, setGroqModel] = useState('llama3-70b-8192')
   const [grokModel, setGrokModel] = useState('grok-2-1212')
@@ -56,7 +56,7 @@ function App(): React.JSX.Element {
     // Active configuration
     setActiveProvider((localStorage.getItem('adr_active_provider') as any) || 'gemini')
     setOpenaiModel(localStorage.getItem('adr_openai_model') || 'gpt-4o-mini')
-    setGeminiModel(localStorage.getItem('adr_gemini_model') || 'gemini-1.5-flash')
+    setGeminiModel(localStorage.getItem('adr_gemini_model') || 'gemini-flash-latest')
     setClaudeModel(localStorage.getItem('adr_claude_model') || 'claude-3-5-sonnet-20241022')
     setGroqModel(localStorage.getItem('adr_groq_model') || 'llama3-70b-8192')
     setGrokModel(localStorage.getItem('adr_grok_model') || 'grok-2-1212')
