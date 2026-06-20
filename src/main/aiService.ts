@@ -168,7 +168,7 @@ async function handleAudioTranscription(req: TranscribeRequest): Promise<string>
       : 'https://api.openai.com/v1/audio/transcriptions'
 
     // Create a native File-like object from Buffer
-    const file = new File([audioBuffer], fileName, { type: 'audio/webm' })
+    const file = new File([new Uint8Array(audioBuffer)], fileName, { type: 'audio/webm' })
 
     const formData = new FormData()
     formData.append('file', file)

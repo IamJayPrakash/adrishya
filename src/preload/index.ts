@@ -30,6 +30,16 @@ const customAPI = {
     return () => {
       ipcRenderer.removeListener('global-shortcut-voice', listener)
     }
+  },
+
+  // Call the AI completion service
+  callAI: async (req: { provider: string; apiKey: string; model: string; messages: any[] }): Promise<{ success: boolean; text?: string; error?: string }> => {
+    return ipcRenderer.invoke('call-ai-api', req)
+  },
+
+  // Transcribe audio using Whisper
+  transcribeAudio: async (req: { provider: 'openai' | 'groq'; apiKey: string; audioArrayBuffer: ArrayBuffer; fileName: string }): Promise<{ success: boolean; text?: string; error?: string }> => {
+    return ipcRenderer.invoke('transcribe-audio', req)
   }
 }
 
