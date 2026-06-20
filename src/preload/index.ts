@@ -17,6 +17,11 @@ const customAPI = {
     return ipcRenderer.invoke('set-screen-protection', enabled)
   },
 
+  // Toggle background blur (acrylic/vibrancy)
+  setWindowBlur: async (enabled: boolean): Promise<boolean> => {
+    return ipcRenderer.invoke('set-window-blur', enabled)
+  },
+
   // Capture screen and extract text using OCR
   captureScreenOCR: async (): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('capture-screen-ocr')

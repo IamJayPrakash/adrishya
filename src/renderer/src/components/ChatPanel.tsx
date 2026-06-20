@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, Copy, Check, Mic, MicOff, Camera, AlertCircle, FileText, X } from 'lucide-react'
+import { Send, Sparkles, Copy, Check, Mic, MicOff, Camera, AlertCircle, FileText, X, ChevronUp, ChevronDown } from 'lucide-react'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -148,11 +148,136 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const [ocrError, setOcrError] = useState('')
   const [ocrCopied, setOcrCopied] = useState(false)
 
+  // Voice loop mode states
+  const [isVoiceLoopActive, setIsVoiceLoopActive] = useState(() => {
+    return localStorage.getItem('adr_voice_loop_active') === 'true'
+  })
+  const [isTTSActive, setIsTTSActive] = useState(() => {
+    return localStorage.getItem('adr_voice_loop_tts') === 'true'
+  })
+
+  // Model indicator collapse state
+  const [isModelCollapsed, setIsModelCollapsed] = useState(() => {
+    return localStorage.getItem('adr_model_indicator_collapsed') === 'true'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('adr_model_indicator_collapsed', String(isModelCollapsed))
+  }, [isModelCollapsed])
+
   // Voice recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
   const recognitionRef = useRef<any>(null)
+
+  // Refs for tracking state inside event listeners to prevent stale closures
+  const isVoiceLoopActiveRef = useRef(isVoiceLoopActive)
+  const isRecordingPausedRef = useRef(isRecordingPaused)
+  const isGeneratingRef = useRef(isGenerating)
+  const inputRef = useRef(input)
+
+  useEffect(() => {
+    isVoiceLoopActiveRef.current = isVoiceLoopActive
+    localStorage.setItem('adr_voice_loop_active', String(isVoiceLoopActive))
+  }, [isVoiceLoopActive])
+
+  useEffect(() => {
+    isRecordingPausedRef.current = isRecordingPaused
+  }, [isRecordingPaused])
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating
+  }, [isGenerating])
+
+  useEffect(() => {
+    inputRef.current = input
+  }, [input])
+
+  useEffect(() => {
+    localStorage.setItem('adr_voice_loop_tts', String(isTTSActive))
+  }, [isTTSActive])
+
+  // Clean up voice loops and speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window.speechSynthesis !== 'undefined') {
+        window.speechSynthesis.cancel()
+      }
+      stopLocalRecognition()
+      stopWhisperRecording()
+    }
+  }, [])
+
+  /**
+   * Play target text using Web Speech Synthesis API
+   */
+  const speakText = (text: string, onEndCallback: () => void) => {
+    if (typeof window.speechSynthesis === 'undefined') {
+      onEndCallback()
+      return
+    }
+    window.speechSynthesis.cancel()
+
+    // Clean markdown formatting if any from spoken text
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, '') // remove code blocks
+      .replace(/`.*?`/g, '') // remove inline code
+      .replace(/\*\*|__/g, '') // remove bold markers
+      .replace(/#+\s+/g, '') // remove headers
+
+    if (!cleanText.trim()) {
+      onEndCallback()
+      return
+    }
+
+    const utterance = new SpeechSynthesisUtterance(cleanText)
+    utterance.lang = 'en-US'
+
+    const voices = window.speechSynthesis.getVoices()
+    const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural'))) || voices.find(v => v.lang.startsWith('en'))
+    if (preferredVoice) {
+      utterance.voice = preferredVoice
+    }
+
+    utterance.onend = () => {
+      onEndCallback()
+    }
+
+    utterance.onerror = (e) => {
+      console.error('Speech synthesis error:', e)
+      onEndCallback()
+    }
+
+    if (typeof window.speechSynthesis !== 'undefined') {
+      window.speechSynthesis.speak(utterance)
+    } else {
+      onEndCallback()
+    }
+  }
+
+  // Listen for AI generation completion to resume continuous voice loop
+  const prevGeneratingRef = useRef(isGenerating)
+
+  useEffect(() => {
+    if (prevGeneratingRef.current && !isGenerating && isVoiceLoopActive && !isRecordingPaused) {
+      if (isTTSActive) {
+        const lastMessage = messages[messages.length - 1]
+        if (lastMessage && lastMessage.role === 'assistant') {
+          speakText(lastMessage.content, () => {
+            if (isVoiceLoopActiveRef.current && !isRecordingPausedRef.current && !isGeneratingRef.current) {
+              startVoiceListening()
+            }
+          })
+        } else {
+          startVoiceListening()
+        }
+      } else {
+        startVoiceListening()
+      }
+    }
+    prevGeneratingRef.current = isGenerating
+  }, [isGenerating, isVoiceLoopActive, isRecordingPaused, isTTSActive, messages])
 
   const handleSend = () => {
     const textToSend = input.trim()
@@ -162,6 +287,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     if (ocrText) {
       // Send as context if ocr text is active
       onSendMessage(`Analyze the following screen content and reply accordingly:\n\n\`\`\`\n${ocrText}\n\`\`\`\n\n${textToSend || 'Please explain what is on the screen.'}`)
+      setOcrText('')
+    } else {
+      onSendMessage(textToSend)
+    }
+    setInput('')
+  }
+
+  const handleSendDirect = (textToSend: string) => {
+    if (!textToSend.trim() || isGenerating) return
+
+    if (ocrText) {
+      onSendMessage(`Analyze the following screen content and reply accordingly:\n\n\`\`\`\n${ocrText}\n\`\`\`\n\n${textToSend}`)
       setOcrText('')
     } else {
       onSendMessage(textToSend)
@@ -181,13 +318,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isGenerating])
 
-  // Clean up recording on unmount
-  useEffect(() => {
-    return () => {
-      stopLocalRecognition()
-      stopWhisperRecording()
+  // Helper to start the active listening channel
+  const startVoiceListening = () => {
+    setVoiceError('')
+    stopLocalRecognition()
+    stopWhisperRecording()
+
+    if (transcriptionMode === 'local') {
+      startLocalRecognition()
+    } else {
+      startWhisperRecording()
     }
-  }, [])
+  }
 
   // Local Web Speech API functions
   const startLocalRecognition = () => {
@@ -199,14 +341,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
     try {
       const rec = new SpeechRecognition()
-      rec.continuous = true
+      // continuous = false under Voice Loop to trigger silence-detection and auto-submit
+      rec.continuous = !isVoiceLoopActiveRef.current
       rec.interimResults = true
       rec.lang = 'en-US'
+
+      let accumulatedText = ''
 
       rec.onstart = () => {
         setIsRecording(true)
         setIsRecordingPaused(false)
-        setVoiceStatusMsg('Listening voice (Local)...')
+        setVoiceStatusMsg(isVoiceLoopActiveRef.current ? 'Listening voice loop (Local)...' : 'Listening voice (Local)...')
         setVoiceError('')
       }
 
@@ -216,8 +361,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       }
 
       rec.onend = () => {
-        if (isRecording && !isRecordingPaused) {
-          rec.start()
+        const textToSubmit = accumulatedText.trim()
+        if (isVoiceLoopActiveRef.current && !isRecordingPausedRef.current) {
+          if (textToSubmit) {
+            handleSendDirect(textToSubmit)
+          } else {
+            // Restart listening if nothing was spoken
+            setTimeout(() => {
+              if (isVoiceLoopActiveRef.current && !isRecordingPausedRef.current && !isGeneratingRef.current) {
+                try {
+                  rec.start()
+                } catch (err) {}
+              }
+            }, 400)
+          }
+        } else if (isRecording && !isRecordingPaused) {
+          try {
+            rec.start()
+          } catch (err) {}
         }
       }
 
@@ -229,6 +390,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           }
         }
         if (finalTranscript) {
+          accumulatedText += finalTranscript
           setInput(prev => prev + (prev ? ' ' : '') + finalTranscript)
         }
       }
@@ -277,7 +439,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       recorder.start()
       setIsRecording(true)
       setIsRecordingPaused(false)
-      setVoiceStatusMsg(`Recording via Whisper (${whisperProvider.toUpperCase()})...`)
+      setVoiceStatusMsg(isVoiceLoopActiveRef.current ? `Whisper Loop (${whisperProvider.toUpperCase()})...` : `Recording via Whisper (${whisperProvider.toUpperCase()})...`)
       setVoiceError('')
 
       recordingTimerRef.current = setInterval(() => {
@@ -322,11 +484,53 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         const text = result.text.trim()
         setInput(prev => prev + (prev ? ' ' : '') + text)
         setVoiceStatusMsg(`Recording via Whisper (${whisperProvider.toUpperCase()})...`)
+
+        if (isVoiceLoopActiveRef.current && !isRecordingPausedRef.current) {
+          stopWhisperRecording()
+          setIsRecording(false)
+          handleSendDirect(text)
+        }
       } else if (!result.success) {
         setVoiceError(`Whisper API error: ${result.error}`)
       }
     } catch (e: any) {
       setVoiceError(`Transcription error: ${e.message}`)
+    }
+  }
+
+  const handleVoiceLoopStart = () => {
+    setIsVoiceLoopActive(true)
+    setIsRecordingPaused(false)
+    setVoiceError('')
+    isVoiceLoopActiveRef.current = true
+
+    startVoiceListening()
+  }
+
+  const handleVoiceLoopStop = () => {
+    setIsVoiceLoopActive(false)
+    if (typeof window.speechSynthesis !== 'undefined') {
+      window.speechSynthesis.cancel()
+    }
+    stopLocalRecognition()
+    stopWhisperRecording()
+    setIsRecording(false)
+    setIsRecordingPaused(false)
+    setVoiceStatusMsg('')
+  }
+
+  const handleVoiceLoopPauseToggle = () => {
+    if (isRecordingPaused) {
+      setIsRecordingPaused(false)
+      startVoiceListening()
+    } else {
+      setIsRecordingPaused(true)
+      if (typeof window.speechSynthesis !== 'undefined') {
+        window.speechSynthesis.cancel()
+      }
+      stopLocalRecognition()
+      stopWhisperRecording()
+      setVoiceStatusMsg('Voice loop paused')
     }
   }
 
@@ -419,21 +623,35 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     <div className="flex flex-col h-full flex-grow overflow-hidden">
       {/* Active Model Indicator */}
       <div
-        className="flex items-center justify-between px-3 py-1.5 border-b text-[10px] text-gray-400 select-none"
+        className="flex items-center justify-between px-3 select-none transition-all duration-300 border-b"
         style={{
+          paddingTop: isModelCollapsed ? '2px' : '6px',
+          paddingBottom: isModelCollapsed ? '2px' : '6px',
           backgroundColor: `rgba(0, 0, 0, ${opacity * 0.1})`,
           borderBottomColor: `rgba(255, 255, 255, ${opacity * 0.1})`
         }}
       >
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
           <Sparkles size={11} className="text-indigo-400 animate-pulse" />
-          <span>Using: <strong className="text-gray-200 capitalize">{activeProvider}</strong> ({activeModel})</span>
+          {!isModelCollapsed && (
+            <span>Using: <strong className="text-gray-200 capitalize">{activeProvider}</strong> ({activeModel})</span>
+          )}
         </div>
-        {isRecording && (
-          <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 font-bold uppercase tracking-wider animate-pulse">
-            Voice Active
-          </span>
-        )}
+
+        <div className="flex items-center gap-1.5">
+          {!isModelCollapsed && isRecording && (
+            <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 font-bold uppercase tracking-wider animate-pulse">
+              Voice Active
+            </span>
+          )}
+          <button
+            onClick={() => setIsModelCollapsed(!isModelCollapsed)}
+            title={isModelCollapsed ? "Show Model Info" : "Hide Model Info"}
+            className="p-0.5 rounded text-gray-500 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+          >
+            {isModelCollapsed ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
+          </button>
+        </div>
       </div>
 
       {/* Messages Panel */}
@@ -637,6 +855,64 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             </button>
           </div>
         )}
+      </div>
+
+      {/* Continuous Voice Loop Control Bar */}
+      <div
+        className="mx-3 mt-2 p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between text-[10px] animate-fade-in select-none"
+        style={{
+          backgroundColor: `rgba(99, 102, 241, ${opacity * 0.08})`,
+          borderColor: `rgba(99, 102, 241, ${opacity * 0.15})`
+        }}
+      >
+        <div className="flex items-center gap-1.5 font-medium text-indigo-300">
+          <Mic size={12} className={isVoiceLoopActive && !isRecordingPaused ? "animate-pulse text-indigo-400" : ""} />
+          <span>Voice Loop</span>
+          {isVoiceLoopActive && (
+            <span className={`text-[8px] px-1 py-0.2 rounded font-bold uppercase tracking-wider ${
+              isRecordingPaused ? 'bg-yellow-600/20 text-yellow-400' : isGenerating ? 'bg-blue-600/20 text-blue-400 animate-pulse' : 'bg-green-600/20 text-green-400 animate-pulse'
+            }`}>
+              {isRecordingPaused ? 'Paused' : isGenerating ? 'AI Generating' : 'Listening...'}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* TTS Toggle */}
+          <label className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors mr-1">
+            <input
+              type="checkbox"
+              checked={isTTSActive}
+              onChange={(e) => setIsTTSActive(e.target.checked)}
+              className="rounded border-white/10 bg-black/40 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3 h-3 cursor-pointer"
+            />
+            <span className="text-[9px] text-gray-400">Speak Responses (TTS)</span>
+          </label>
+
+          {isVoiceLoopActive ? (
+            <>
+              <button
+                onClick={handleVoiceLoopPauseToggle}
+                className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded border border-white/5 font-semibold cursor-pointer"
+              >
+                {isRecordingPaused ? 'Resume' : 'Pause'}
+              </button>
+              <button
+                onClick={handleVoiceLoopStop}
+                className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded font-semibold cursor-pointer"
+              >
+                Stop Loop
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleVoiceLoopStart}
+              className="px-2.5 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-semibold transition-all cursor-pointer shadow-md shadow-indigo-600/20"
+            >
+              Start Loop
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Input box */}

@@ -13,6 +13,10 @@ if (typeof window.api === 'undefined') {
       console.log('Mock Set Screen Protection:', enabled)
       return true
     },
+    setWindowBlur: async (enabled) => {
+      console.log('Mock Set Window Blur:', enabled)
+      return true
+    },
     captureScreenOCR: async () => {
       console.log('Mock Capture Screen OCR')
       return { success: true, text: 'Extracted sample OCR code from active window:\n\nfunction add(a, b) {\n  return a + b;\n}' }

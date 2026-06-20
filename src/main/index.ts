@@ -141,6 +141,24 @@ app.whenReady().then(() => {
     return false
   })
 
+  // Toggle Background Blur (Acrylic on Windows, Vibrancy on macOS)
+  ipcMain.handle('set-window-blur', (_event, enabled: boolean) => {
+    if (mainWindow) {
+      try {
+        if (process.platform === 'win32') {
+          mainWindow.setBackgroundMaterial(enabled ? 'acrylic' : 'none')
+        } else if (process.platform === 'darwin') {
+          mainWindow.setVibrancy(enabled ? 'under-window' : null)
+        }
+        return true
+      } catch (err) {
+        console.error('Failed to set window background material:', err)
+        return false
+      }
+    }
+    return false
+  })
+
   // Screen Capture and OCR analysis
   ipcMain.handle('capture-screen-ocr', async () => {
     try {

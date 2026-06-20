@@ -6,6 +6,7 @@ global.window.api = {
   resizeWindow: vi.fn(),
   moveWindow: vi.fn(),
   setScreenProtection: vi.fn().mockResolvedValue(true),
+  setWindowBlur: vi.fn().mockResolvedValue(true),
   captureScreenOCR: vi.fn().mockResolvedValue({ success: true, text: 'Hello World OCR' }),
   onGlobalShortcutVoice: vi.fn().mockReturnValue(() => {}),
   callAI: vi.fn().mockResolvedValue({ success: true, text: 'AI suggestions text response' }),

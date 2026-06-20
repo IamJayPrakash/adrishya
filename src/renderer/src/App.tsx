@@ -96,6 +96,12 @@ function App(): React.JSX.Element {
     localStorage.setItem('adr_screen_protection', String(screenProtection))
   }, [screenProtection])
 
+  // Sync background blur whenever changed (triggers native OS acrylic/vibrancy)
+  useEffect(() => {
+    window.api.setWindowBlur(blur > 0)
+    localStorage.setItem('adr_blur', String(blur))
+  }, [blur])
+
   /**
    * Saves the customized UI settings and API keys to LocalStorage
    * and closes the settings page to return to the active assistant chat panel.
