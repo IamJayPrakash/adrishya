@@ -11,3 +11,6 @@ global.window.api = {
   callAI: vi.fn().mockResolvedValue({ success: true, text: 'AI suggestions text response' }),
   transcribeAudio: vi.fn().mockResolvedValue({ success: true, text: 'Voice transcription response' })
 }
+
+// Mock scrollIntoView which JSDOM does not support by default
+window.HTMLElement.prototype.scrollIntoView = vi.fn()
