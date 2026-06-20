@@ -50,6 +50,14 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+
+    // Grant microphone/media permissions so Web Speech API and MediaRecorder work
+    mainWindow?.webContents.session.setPermissionRequestHandler(
+      (_webContents, permission, callback) => {
+        const allowedPermissions = ['media', 'microphone', 'audioCapture']
+        callback(allowedPermissions.includes(permission))
+      }
+    )
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

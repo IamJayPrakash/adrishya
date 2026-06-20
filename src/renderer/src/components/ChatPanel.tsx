@@ -329,6 +329,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Local Web Speech API functions
   const startLocalRecognition = () => {
+    // Electron's Chromium doesn't include Google's private speech API key,
+    // so webkitSpeechRecognition always fails with 'network' in the desktop app.
+    // Chrome browser works because it has the key baked in. Detect and bail early.
+    const isElectron = navigator.userAgent.toLowerCase().includes('electron')
+    if (isElectron) {
+      setVoiceError(
+        '⚠️ Local Speech API is unavailable in the desktop app (Electron lacks the required Google API key). ' +
+        'Please switch to Whisper API in Settings → Speech Transcription Settings.'
+      )
+      return
+    }
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
       setVoiceError('Web Speech API is not supported on this platform.')
@@ -343,6 +355,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       rec.lang = 'en-US'
 
       let accumulatedText = ''
+      let hadError = false  // Guard: prevent onend from restarting after an error
 
       rec.onstart = () => {
         setIsRecording(true)
@@ -352,29 +365,47 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       }
 
       rec.onerror = (event: any) => {
-        console.error('Speech recognition error:', event)
-        setVoiceError(event.error === 'network' ? 'Chromium Speech API requires an internet connection.' : `Error: ${event.error}`)
+        hadError = true
+        // Fully clean up so onend does NOT try to restart
+        setIsRecording(false)
+        setIsRecordingPaused(false)
+        setVoiceStatusMsg('')
+        console.error('Speech recognition error:', event.error)
+
+        if (event.error === 'network') {
+          setVoiceError(
+            'Speech API needs internet. Try switching to Whisper API in Settings, or check your connection.'
+          )
+        } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          setVoiceError('Microphone access denied. Please allow microphone permission.')
+        } else if (event.error === 'no-speech') {
+          // Non-fatal: no speech detected, allow retry
+          hadError = false
+        } else {
+          setVoiceError(`Voice error: ${event.error}`)
+        }
       }
 
       rec.onend = () => {
+        // If an error occurred (network, not-allowed, etc.), stop here — do NOT restart
+        if (hadError) return
+
         const textToSubmit = accumulatedText.trim()
+
         if (isVoiceLoopActiveRef.current && !isRecordingPausedRef.current) {
           if (textToSubmit) {
             handleSendDirect(textToSubmit)
           } else {
-            // Restart listening if nothing was spoken
+            // Nothing spoken — wait briefly then restart listening
             setTimeout(() => {
               if (isVoiceLoopActiveRef.current && !isRecordingPausedRef.current && !isGeneratingRef.current) {
-                try {
-                  rec.start()
-                } catch (err) {}
+                try { rec.start() } catch (_) {}
               }
             }, 400)
           }
-        } else if (isRecording && !isRecordingPaused) {
-          try {
-            rec.start()
-          } catch (err) {}
+        } else if (!isRecordingPausedRef.current && recognitionRef.current === rec) {
+          // Single-shot continuous mode: restart until user stops
+          try { rec.start() } catch (_) {}
         }
       }
 
