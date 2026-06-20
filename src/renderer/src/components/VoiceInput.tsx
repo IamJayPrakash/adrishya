@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, MicOff, Play, Pause, Square, AlertCircle, Settings } from 'lucide-react'
+import { Mic, MicOff, Play, Pause, Square, AlertCircle } from 'lucide-react'
 
 interface VoiceInputProps {
   onTranscriptReceived: (text: string) => void

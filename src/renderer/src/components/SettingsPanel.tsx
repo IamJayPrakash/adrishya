@@ -1,5 +1,5 @@
 import React from 'react'
-import { Save, Shield, Key, Eye, EyeOff, Sliders, Type } from 'lucide-react'
+import { Save, Shield, Key, Eye, EyeOff, Sliders } from 'lucide-react'
 
 interface SettingsPanelProps {
   opacity: number
