@@ -9,6 +9,8 @@ describe('SettingsPanel Component', () => {
       <SettingsPanel
         opacity={0.9}
         setOpacity={vi.fn()}
+        blur={10}
+        setBlur={vi.fn()}
         fontSize={13}
         setFontSize={vi.fn()}
         theme="dark"

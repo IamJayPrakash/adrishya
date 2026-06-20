@@ -1,5 +1,5 @@
 import React from 'react'
-import { MessageSquare, Mic, Camera, Settings, Maximize2, Minimize2, Trash2 } from 'lucide-react'
+import { MessageSquare, Settings, Maximize2, Minimize2, Trash2, X } from 'lucide-react'
 import logo from '../assets/logo.png'
 
 interface OverlayWidgetProps {
@@ -9,6 +9,7 @@ interface OverlayWidgetProps {
   setIsCollapsed: (collapsed: boolean) => void
   theme: 'light' | 'dark' | 'amoled'
   opacity: number
+  blur: number
   onClearHistory: () => void
   children: React.ReactNode
 }
@@ -20,6 +21,7 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
   setIsCollapsed,
   theme,
   opacity,
+  blur,
   onClearHistory,
   children
 }) => {
@@ -28,6 +30,23 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
     if (theme === 'light') return 'frosted-glass-light'
     if (theme === 'amoled') return 'frosted-glass-amoled'
     return 'frosted-glass-dark'
+  }
+
+  // Get dynamic background style for true window transparency (fades bg color without text blur)
+  const getGlassStyle = () => {
+    const baseStyle = {
+      backdropFilter: `blur(${blur}px)`,
+      WebkitBackdropFilter: `blur(${blur}px)`
+    }
+
+    if (theme === 'light') {
+      return { ...baseStyle, background: `rgba(255, 255, 255, ${opacity * 0.65})` }
+    }
+    if (theme === 'amoled') {
+      return { ...baseStyle, background: `rgba(0, 0, 0, ${opacity * 0.95})` }
+    }
+    // Dark theme (default)
+    return { ...baseStyle, background: `rgba(18, 20, 26, ${opacity * 0.65})` }
   }
 
   // Handle Collapsing and Resizing
@@ -47,7 +66,7 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
   return (
     <div
       className={`h-screen flex flex-col rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 border ${getGlassClass()}`}
-      style={{ opacity }}
+      style={getGlassStyle()}
     >
       {/* Header bar (Draggable) */}
       <div
@@ -73,6 +92,19 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
             </button>
           )}
 
+          {/* Settings button */}
+          {!isCollapsed && (
+            <button
+              onClick={() => setMode(mode === 'settings' ? 'chat' : 'settings')}
+              title={mode === 'settings' ? 'Back to Chat' : 'Open Settings'}
+              className={`p-1 rounded-lg transition-all ${
+                mode === 'settings' ? 'text-indigo-400 bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Settings size={12} />
+            </button>
+          )}
+
           {/* Collapse/Expand button */}
           <button
             onClick={handleCollapseToggle}
@@ -80,6 +112,15 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
             className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
           >
             {isCollapsed ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+          </button>
+
+          {/* Close button */}
+          <button
+            onClick={() => window.api.quitApp()}
+            title="Quit Application (Ctrl+Shift+Q)"
+            className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
+          >
+            <X size={12} />
           </button>
         </div>
       </div>
@@ -89,55 +130,18 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
         // Collapsed horizontal mode (Pill layout)
         <div className="flex-1 flex items-center justify-between px-4 select-none">
           <span className="text-[10px] text-gray-400 italic">Floating Widget</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setMode('chat'); handleCollapseToggle(); }}
-              className={`p-1.5 rounded-lg border border-white/5 bg-white/5 text-gray-300 hover:text-white`}
-            >
-              <MessageSquare size={12} />
-            </button>
-            <button
-              onClick={() => { setMode('voice'); handleCollapseToggle(); }}
-              className={`p-1.5 rounded-lg border border-white/5 bg-white/5 text-gray-300 hover:text-white`}
-            >
-              <Mic size={12} />
-            </button>
-            <button
-              onClick={() => { setMode('screen'); handleCollapseToggle(); }}
-              className={`p-1.5 rounded-lg border border-white/5 bg-white/5 text-gray-300 hover:text-white`}
-            >
-              <Camera size={12} />
-            </button>
-          </div>
+          <button
+            onClick={() => { setMode('chat'); handleCollapseToggle(); }}
+            className="p-1.5 rounded-lg border border-white/5 bg-indigo-600/20 text-indigo-300 hover:text-white flex items-center gap-1.5 text-[10px] font-semibold"
+          >
+            <MessageSquare size={12} />
+            Expand Chat
+          </button>
         </div>
       ) : (
         // Expanded vertical mode (Full App)
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Tab Navigation Controls */}
-          <div className="flex border-b border-white/5 bg-black/10 select-none">
-            {(['chat', 'voice', 'screen', 'settings'] as const).map((m) => {
-              const isActive = mode === m
-              return (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`flex-1 py-2 text-[10px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-all capitalize ${
-                    isActive
-                      ? 'border-indigo-500 text-white bg-white/5'
-                      : 'border-transparent text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  {m === 'chat' && <MessageSquare size={11} />}
-                  {m === 'voice' && <Mic size={11} />}
-                  {m === 'screen' && <Camera size={11} />}
-                  {m === 'settings' && <Settings size={11} />}
-                  {m}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Render children component */}
+          {/* Render children component directly without bottom tabs */}
           <div className="flex-1 flex flex-col overflow-hidden">{children}</div>
         </div>
       )}

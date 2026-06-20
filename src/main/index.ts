@@ -43,13 +43,6 @@ function createWindow(): void {
     }
   })
 
-  // Apply native Vibrancy / Acrylic materials if supported
-  if (process.platform === 'win32') {
-    mainWindow.setBackgroundMaterial('acrylic') // Windows 11 frosted glass effect
-  } else if (process.platform === 'darwin') {
-    mainWindow.setVibrancy('fullscreen-ui') // macOS frosted glass effect
-  }
-
   // Set Content Protection (makes the window black/invisible during screen share)
   mainWindow.setAlwaysOnTop(true, 'screen-saver') // Stay on top of full-screen browsers/games
   mainWindow.setContentProtection(true)
@@ -96,6 +89,11 @@ function registerGlobalShortcuts(): void {
         mainWindow.webContents.send('global-shortcut-voice')
       }
     })
+
+    // Ctrl+Shift+Q to quit the application instantly
+    globalShortcut.register('Ctrl+Shift+Q', () => {
+      app.quit()
+    })
   } catch (err) {
     console.error('Failed to register global shortcuts:', err)
   }
@@ -112,6 +110,11 @@ app.whenReady().then(() => {
 
   // Set up IPC listeners
   initAIServices()
+
+  // Quit the application instantly
+  ipcMain.on('quit-app', () => {
+    app.quit()
+  })
   
   // Window Resizing & Collapsing (pill vs full panel)
   ipcMain.on('resize-window', (_event, width: number, height: number) => {

@@ -12,6 +12,9 @@ describe('ChatPanel Component', () => {
         activeModel="gemini-1.5-flash"
         isGenerating={false}
         fontSize={13}
+        transcriptionMode="local"
+        whisperProvider="groq"
+        whisperApiKey=""
       />
     )
     expect(screen.getByText('Welcome to Adrishya')).toBeInTheDocument()
@@ -32,6 +35,9 @@ describe('ChatPanel Component', () => {
         activeModel="gemini-1.5-flash"
         isGenerating={false}
         fontSize={13}
+        transcriptionMode="local"
+        whisperProvider="groq"
+        whisperApiKey=""
       />
     )
 
@@ -49,14 +55,17 @@ describe('ChatPanel Component', () => {
         activeModel="gemini-1.5-flash"
         isGenerating={false}
         fontSize={13}
+        transcriptionMode="local"
+        whisperProvider="groq"
+        whisperApiKey=""
       />
     )
 
     const textarea = screen.getByPlaceholderText('Type your message...')
     fireEvent.change(textarea, { target: { value: 'Test message query' } })
     
-    // Send button is the button element in ChatPanel
-    const sendButton = screen.getByRole('button')
+    // Find the Send button specifically by its aria-label
+    const sendButton = screen.getByRole('button', { name: /send message/i })
     fireEvent.click(sendButton)
 
     expect(handleSend).toHaveBeenCalledWith('Test message query')

@@ -9,7 +9,8 @@ global.window.api = {
   captureScreenOCR: vi.fn().mockResolvedValue({ success: true, text: 'Hello World OCR' }),
   onGlobalShortcutVoice: vi.fn().mockReturnValue(() => {}),
   callAI: vi.fn().mockResolvedValue({ success: true, text: 'AI suggestions text response' }),
-  transcribeAudio: vi.fn().mockResolvedValue({ success: true, text: 'Voice transcription response' })
+  transcribeAudio: vi.fn().mockResolvedValue({ success: true, text: 'Voice transcription response' }),
+  quitApp: vi.fn()
 }
 
 // Mock scrollIntoView which JSDOM does not support by default

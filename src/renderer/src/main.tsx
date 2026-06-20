@@ -36,6 +36,9 @@ if (typeof window.api === 'undefined') {
     transcribeAudio: async (req) => {
       console.log('Mock transcribeAudio:', req)
       return { success: true, text: 'This is a mock voice transcript from the browser.' }
+    },
+    quitApp: () => {
+      console.log('Mock Quit App')
     }
   }
 }

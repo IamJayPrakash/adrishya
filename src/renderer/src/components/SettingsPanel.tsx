@@ -4,6 +4,8 @@ import { Save, Shield, Key, Eye, EyeOff, Sliders } from 'lucide-react'
 interface SettingsPanelProps {
   opacity: number
   setOpacity: (val: number) => void
+  blur: number
+  setBlur: (val: number) => void
   fontSize: number
   setFontSize: (val: number) => void
   theme: 'light' | 'dark' | 'amoled'
@@ -47,6 +49,8 @@ interface SettingsPanelProps {
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   opacity,
   setOpacity,
+  blur,
+  setBlur,
   fontSize,
   setFontSize,
   theme,
@@ -100,11 +104,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
           <input
             type="range"
-            min="0.2"
+            min="0.0"
             max="1.0"
             step="0.05"
             value={opacity}
             onChange={(e) => setOpacity(parseFloat(e.target.value))}
+            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+          />
+        </div>
+
+        {/* Background Blur Slider */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-[10px] text-gray-400 select-none">
+            <span>Background Blur</span>
+            <span>{blur}px</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="30"
+            step="1"
+            value={blur}
+            onChange={(e) => setBlur(parseInt(e.target.value))}
             className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
           />
         </div>

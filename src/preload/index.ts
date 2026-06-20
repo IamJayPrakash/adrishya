@@ -40,6 +40,11 @@ const customAPI = {
   // Transcribe audio using Whisper
   transcribeAudio: async (req: { provider: 'openai' | 'groq'; apiKey: string; audioArrayBuffer: ArrayBuffer; fileName: string }): Promise<{ success: boolean; text?: string; error?: string }> => {
     return ipcRenderer.invoke('transcribe-audio', req)
+  },
+
+  // Quit the application instantly
+  quitApp: (): void => {
+    ipcRenderer.send('quit-app')
   }
 }
 

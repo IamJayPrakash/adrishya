@@ -12,6 +12,7 @@ These shortcuts function **globally** across your entire operating system. You c
 | :--- | :--- | :--- |
 | **`Ctrl` + `Shift` + `A`** | **Toggle Visibility** | Instantly hides the overlay window from view, or shows and focuses it. |
 | **`Ctrl` + `Shift` + `V`** | **Toggle Voice Recording** | Instantly starts or stops recording your voice for speech-to-text. |
+| **`Ctrl` + `Shift` + `Q`** | **Quit Application** | Instantly terminates the application processes and closes all windows. |
 
 ---
 

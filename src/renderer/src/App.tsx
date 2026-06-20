@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { OverlayWidget } from './components/OverlayWidget'
 import { ChatPanel } from './components/ChatPanel'
-import { VoiceInput } from './components/VoiceInput'
-import { ScreenAwareness } from './components/ScreenAwareness'
 import { SettingsPanel } from './components/SettingsPanel'
 
 interface Message {
@@ -17,6 +15,7 @@ function App(): React.JSX.Element {
 
   // Visual Customization States
   const [opacity, setOpacity] = useState(0.9)
+  const [blur, setBlur] = useState(10)
   const [fontSize, setFontSize] = useState(13)
   const [theme, setTheme] = useState<'light' | 'dark' | 'amoled'>('dark')
   const [screenProtection, setScreenProtection] = useState(true)
@@ -64,6 +63,9 @@ function App(): React.JSX.Element {
     // Visual configurations
     const savedOpacity = localStorage.getItem('adr_opacity')
     if (savedOpacity) setOpacity(parseFloat(savedOpacity))
+
+    const savedBlur = localStorage.getItem('adr_blur')
+    if (savedBlur) setBlur(parseInt(savedBlur))
 
     const savedFontSize = localStorage.getItem('adr_font_size')
     if (savedFontSize) setFontSize(parseInt(savedFontSize))
@@ -113,6 +115,7 @@ function App(): React.JSX.Element {
     localStorage.setItem('adr_grok_model', grokModel)
 
     localStorage.setItem('adr_opacity', String(opacity))
+    localStorage.setItem('adr_blur', String(blur))
     localStorage.setItem('adr_font_size', String(fontSize))
     localStorage.setItem('adr_theme', theme)
     localStorage.setItem('adr_transcription_mode', transcriptionMode)
@@ -220,6 +223,7 @@ function App(): React.JSX.Element {
       setIsCollapsed={setIsCollapsed}
       theme={theme}
       opacity={opacity}
+      blur={blur}
       onClearHistory={handleClearHistory}
     >
       {mode === 'chat' && (
@@ -230,30 +234,9 @@ function App(): React.JSX.Element {
           activeModel={getActiveConfig().model}
           isGenerating={isGenerating}
           fontSize={fontSize}
-        />
-      )}
-
-      {mode === 'voice' && (
-        <VoiceInput
-          onTranscriptReceived={(text) => {
-            // Append transcribed text directly into the assistant chat prompt flow
-            handleSendPrompt(text)
-          }}
-          fontSize={fontSize}
-          whisperProvider={whisperProvider}
-          apiKey={getWhisperKey()}
           transcriptionMode={transcriptionMode}
-        />
-      )}
-
-      {mode === 'screen' && (
-        <ScreenAwareness
-          onSendToAI={(finalPrompt) => {
-            setMode('chat')
-            handleSendPrompt(finalPrompt)
-          }}
-          isGenerating={isGenerating}
-          fontSize={fontSize}
+          whisperProvider={whisperProvider}
+          whisperApiKey={getWhisperKey()}
         />
       )}
 
@@ -261,6 +244,8 @@ function App(): React.JSX.Element {
         <SettingsPanel
           opacity={opacity}
           setOpacity={setOpacity}
+          blur={blur}
+          setBlur={setBlur}
           fontSize={fontSize}
           setFontSize={setFontSize}
           theme={theme}

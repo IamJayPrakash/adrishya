@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, Copy, Check, CornerDownLeft } from 'lucide-react'
+import { Send, Sparkles, Copy, Check, Mic, MicOff, Camera, AlertCircle, FileText, X } from 'lucide-react'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -13,6 +13,9 @@ interface ChatPanelProps {
   activeModel: string
   isGenerating: boolean
   fontSize: number
+  transcriptionMode: 'local' | 'api'
+  whisperProvider: 'groq' | 'openai'
+  whisperApiKey: string
 }
 
 // Custom simple markdown formatter with copy-to-clipboard code blocks
@@ -105,7 +108,6 @@ const FormattedMessage: React.FC<{ content: string; fontSize: number }> = ({ con
 
 // Helper to parse bold (**text**) and inline code (`code`)
 function parseInlineStyles(text: string) {
-  // Regex split for bold and inline code
   const tokens = text.split(/(\*\*.*?\*\*|`.*?`)/g)
   return tokens.map((token, idx) => {
     if (token.startsWith('**') && token.endsWith('**')) {
@@ -124,14 +126,44 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   activeProvider,
   activeModel,
   isGenerating,
-  fontSize
+  fontSize,
+  transcriptionMode,
+  whisperProvider,
+  whisperApiKey
 }) => {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false)
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false)
+  const [voiceStatusMsg, setVoiceStatusMsg] = useState('')
+  const [voiceError, setVoiceError] = useState('')
+
+  // Screen OCR states
+  const [isCapturingScreen, setIsCapturingScreen] = useState(false)
+  const [ocrText, setOcrText] = useState('')
+  const [ocrError, setOcrError] = useState('')
+  const [ocrCopied, setOcrCopied] = useState(false)
+
+  // Voice recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const recognitionRef = useRef<any>(null)
+
   const handleSend = () => {
-    if (!input.trim() || isGenerating) return
-    onSendMessage(input.trim())
+    const textToSend = input.trim()
+    if (!textToSend && !ocrText) return
+    if (isGenerating) return
+
+    if (ocrText) {
+      // Send as context if ocr text is active
+      onSendMessage(`Analyze the following screen content and reply accordingly:\n\n\`\`\`\n${ocrText}\n\`\`\`\n\n${textToSend || 'Please explain what is on the screen.'}`)
+      setOcrText('')
+    } else {
+      onSendMessage(textToSend)
+    }
     setInput('')
   }
 
@@ -142,17 +174,258 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }
 
-  // Auto scroll to bottom when new messages arrive
+  // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isGenerating])
 
+  // Clean up recording on unmount
+  useEffect(() => {
+    return () => {
+      stopLocalRecognition()
+      stopWhisperRecording()
+    }
+  }, [])
+
+  // Local Web Speech API functions
+  const startLocalRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setVoiceError('Web Speech API is not supported on this platform.')
+      return
+    }
+
+    try {
+      const rec = new SpeechRecognition()
+      rec.continuous = true
+      rec.interimResults = true
+      rec.lang = 'en-US'
+
+      rec.onstart = () => {
+        setIsRecording(true)
+        setIsRecordingPaused(false)
+        setVoiceStatusMsg('Listening voice (Local)...')
+        setVoiceError('')
+      }
+
+      rec.onerror = (event: any) => {
+        console.error('Speech recognition error:', event)
+        setVoiceError(event.error === 'network' ? 'Chromium Speech API requires an internet connection.' : `Error: ${event.error}`)
+      }
+
+      rec.onend = () => {
+        if (isRecording && !isRecordingPaused) {
+          rec.start()
+        }
+      }
+
+      rec.onresult = (event: any) => {
+        let finalTranscript = ''
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' '
+          }
+        }
+        if (finalTranscript) {
+          setInput(prev => prev + (prev ? ' ' : '') + finalTranscript)
+        }
+      }
+
+      recognitionRef.current = rec
+      rec.start()
+    } catch (e: any) {
+      setVoiceError(`Failed to start voice: ${e.message}`)
+    }
+  }
+
+  const stopLocalRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+    }
+  }
+
+  // Whisper Cloud Transcription functions
+  const startWhisperRecording = async () => {
+    if (!whisperApiKey) {
+      setVoiceError(`API Key required for Whisper (${whisperProvider.toUpperCase()}). Please configure it in settings.`)
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      audioChunksRef.current = []
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      recorder.onstop = async () => {
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+          await processWhisperChunk(audioBlob)
+        }
+      }
+
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setIsRecording(true)
+      setIsRecordingPaused(false)
+      setVoiceStatusMsg(`Recording via Whisper (${whisperProvider.toUpperCase()})...`)
+      setVoiceError('')
+
+      recordingTimerRef.current = setInterval(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop()
+          mediaRecorderRef.current.start()
+        }
+      }, 7000)
+    } catch (err: any) {
+      setVoiceError(`Mic Access Error: ${err.message}`)
+    }
+  }
+
+  const stopWhisperRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    if (mediaRecorderRef.current) {
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop()
+      }
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
+      mediaRecorderRef.current = null
+    }
+  }
+
+  const processWhisperChunk = async (audioBlob: Blob) => {
+    try {
+      setVoiceStatusMsg('Transcribing voice...')
+      const arrayBuffer = await audioBlob.arrayBuffer()
+      const fileName = `voice-chunk-${Date.now()}.webm`
+
+      const result = await window.api.transcribeAudio({
+        provider: whisperProvider,
+        apiKey: whisperApiKey,
+        audioArrayBuffer: arrayBuffer,
+        fileName
+      })
+
+      if (result.success && result.text && result.text.trim()) {
+        const text = result.text.trim()
+        setInput(prev => prev + (prev ? ' ' : '') + text)
+        setVoiceStatusMsg(`Recording via Whisper (${whisperProvider.toUpperCase()})...`)
+      } else if (!result.success) {
+        setVoiceError(`Whisper API error: ${result.error}`)
+      }
+    } catch (e: any) {
+      setVoiceError(`Transcription error: ${e.message}`)
+    }
+  }
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      handleVoiceStopAndSubmit()
+    } else {
+      setVoiceError('')
+      if (transcriptionMode === 'local') {
+        startLocalRecognition()
+      } else {
+        startWhisperRecording()
+      }
+    }
+  }
+
+  const handleVoicePauseToggle = () => {
+    if (isRecordingPaused) {
+      setIsRecordingPaused(false)
+      if (transcriptionMode === 'local') {
+        startLocalRecognition()
+      } else {
+        startWhisperRecording()
+      }
+    } else {
+      setIsRecordingPaused(true)
+      setVoiceStatusMsg('Recording paused')
+      if (transcriptionMode === 'local') {
+        stopLocalRecognition()
+      } else {
+        stopWhisperRecording()
+      }
+    }
+  }
+
+  const handleVoiceStopAndSubmit = () => {
+    setIsRecording(false)
+    setIsRecordingPaused(false)
+    setVoiceStatusMsg('')
+
+    if (transcriptionMode === 'local') {
+      stopLocalRecognition()
+    } else {
+      stopWhisperRecording()
+    }
+
+    setTimeout(() => {
+      handleSend()
+    }, 200)
+  }
+
+  // Global Ctrl+Shift+V Hotkey listener
+  useEffect(() => {
+    const unsubscribe = window.api.onGlobalShortcutVoice(() => {
+      toggleRecording()
+    })
+    return () => unsubscribe()
+  }, [isRecording, isRecordingPaused, transcriptionMode, whisperProvider, whisperApiKey])
+
+  // Screen Capture OCR function
+  const handleCaptureScreen = async () => {
+    setIsCapturingScreen(true)
+    setOcrError('')
+    try {
+      const result = await window.api.captureScreenOCR()
+      if (result.success && result.text) {
+        setOcrText(result.text)
+        setOcrError('')
+      } else if (!result.success) {
+        setOcrError(result.error || 'Failed to capture screen.')
+      } else {
+        setOcrText('')
+        setOcrError('Screen captured, but no readable text found.')
+      }
+    } catch (err: any) {
+      setOcrError(`Capture error: ${err.message}`)
+    } finally {
+      setIsCapturingScreen(false)
+    }
+  }
+
+  const handleAnalyzeOCR = (presetPrompt: string) => {
+    if (!ocrText || isGenerating) return
+    const finalPrompt = `${presetPrompt}\n\n\`\`\`\n${ocrText}\n\`\`\``
+    onSendMessage(finalPrompt)
+    setOcrText('') // Clear OCR context after sending
+  }
+
   return (
     <div className="flex flex-col h-full flex-grow overflow-hidden">
       {/* Active Model Indicator */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 text-[10px] text-gray-400 select-none bg-black/10">
-        <Sparkles size={11} className="text-indigo-400 animate-pulse" />
-        <span>Using: <strong className="text-gray-200 capitalize">{activeProvider}</strong> ({activeModel})</span>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10 text-[10px] text-gray-400 select-none bg-black/10">
+        <div className="flex items-center gap-1.5">
+          <Sparkles size={11} className="text-indigo-400 animate-pulse" />
+          <span>Using: <strong className="text-gray-200 capitalize">{activeProvider}</strong> ({activeModel})</span>
+        </div>
+        {isRecording && (
+          <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-600/20 text-red-400 font-bold uppercase tracking-wider animate-pulse">
+            Voice Active
+          </span>
+        )}
       </div>
 
       {/* Messages Panel */}
@@ -164,7 +437,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-200">Welcome to Adrishya</p>
-              <p className="text-[10px] text-gray-500 mt-1 max-w-[200px]">Ask a question, start voice recording, or analyze your screen contents.</p>
+              <p className="text-[10px] text-gray-500 mt-1 max-w-[200px]">
+                Ask questions, toggle voice, or capture screen OCR all in one workspace.
+              </p>
             </div>
           </div>
         )}
@@ -205,6 +480,115 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Dynamic Status Bars (Voice, Screen OCR, Errors) */}
+      <div className="flex flex-col bg-black/10">
+        {/* Voice recording status bar */}
+        {isRecording && (
+          <div className="mx-3 mt-2 p-2.5 bg-indigo-950/40 border border-indigo-500/20 rounded-xl flex items-center justify-between text-[10px] animate-fade-in select-none">
+            <div className="flex items-center gap-2 text-indigo-300 font-medium">
+              {isRecordingPaused ? (
+                <MicOff size={12} className="text-yellow-400" />
+              ) : (
+                <div className="flex items-end gap-0.5 h-3.5 mr-0.5">
+                  <span className="w-0.5 bg-indigo-400 rounded-full wave-bar h-1.5" />
+                  <span className="w-0.5 bg-indigo-400 rounded-full wave-bar h-3" />
+                  <span className="w-0.5 bg-indigo-400 rounded-full wave-bar h-2" />
+                </div>
+              )}
+              <span>{voiceStatusMsg || 'Listening...'}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleVoicePauseToggle}
+                className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded border border-white/5 font-semibold cursor-pointer"
+              >
+                {isRecordingPaused ? 'Resume' : 'Pause'}
+              </button>
+              <button
+                onClick={handleVoiceStopAndSubmit}
+                className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded font-semibold cursor-pointer"
+              >
+                Stop & Send
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Screen OCR Captured context bar */}
+        {ocrText && (
+          <div className="mx-3 mt-2 p-2.5 bg-black/40 border border-white/10 rounded-xl flex flex-col gap-2 text-[10px] animate-fade-in">
+            <div className="flex justify-between items-center select-none text-gray-400">
+              <span className="font-mono flex items-center gap-1 text-indigo-300">
+                <FileText size={11} />
+                Screen Context ({ocrText.length} chars)
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(ocrText)
+                    setOcrCopied(true)
+                    setTimeout(() => setOcrCopied(false), 2000)
+                  }}
+                  className="hover:text-white transition-colors p-0.5"
+                >
+                  {ocrCopied ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
+                </button>
+                <button
+                  onClick={() => setOcrText('')}
+                  className="hover:text-white transition-colors font-bold text-xs"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            </div>
+            <div className="max-h-16 overflow-y-auto font-mono text-[9px] bg-black/40 p-1.5 rounded text-gray-300 border border-white/5 whitespace-pre-wrap select-text scrollbar-thin">
+              {ocrText}
+            </div>
+            <div className="flex gap-1.5 select-none">
+              <button
+                onClick={() => handleAnalyzeOCR('Explain the code and correct errors if any:')}
+                disabled={isGenerating}
+                className="flex-1 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-200 rounded-lg text-[9px] font-medium transition-all cursor-pointer"
+              >
+                Explain Code
+              </button>
+              <button
+                onClick={() => handleAnalyzeOCR('Analyze this screen capture and provide the correct answers or next steps details:')}
+                disabled={isGenerating}
+                className="flex-1 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-200 rounded-lg text-[9px] font-medium transition-all cursor-pointer"
+              >
+                Solve / Answer
+              </button>
+              <button
+                onClick={() => {
+                  setInput(prev => prev + (prev ? '\n' : '') + ocrText)
+                  setOcrText('')
+                }}
+                className="py-1 px-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[9px] font-semibold transition-all cursor-pointer"
+              >
+                Append
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error message bar */}
+        {(ocrError || voiceError) && (
+          <div className="mx-3 mt-2 p-2 bg-red-950/40 border border-red-500/20 text-red-300 rounded-xl text-[9px] flex gap-1.5 items-start animate-fade-in select-none">
+            <AlertCircle size={12} className="shrink-0 mt-0.5 text-red-400" />
+            <div className="flex-1">
+              <p>{ocrError || voiceError}</p>
+            </div>
+            <button
+              onClick={() => { setOcrError(''); setVoiceError(''); }}
+              className="text-[11px] font-bold text-red-400 hover:text-white"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Input box */}
       <div className="p-3 border-t border-white/10 bg-black/20">
         <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all duration-200 pr-2 pl-3 py-1.5">
@@ -215,18 +599,44 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             placeholder="Type your message..."
             rows={1}
             disabled={isGenerating}
-            className="flex-1 bg-transparent border-0 text-xs text-white placeholder-gray-500 focus:ring-0 focus:outline-none resize-none pr-8 py-0.5 leading-normal max-h-24 scrollbar-none"
+            className="flex-1 bg-transparent border-0 text-xs text-white placeholder-gray-500 focus:ring-0 focus:outline-none resize-none pr-20 py-0.5 leading-normal max-h-24 scrollbar-none"
           />
           <div className="absolute right-2 bottom-1.5 flex items-center gap-1.5 select-none">
-            <span className="text-[9px] text-gray-500 flex items-center gap-0.5 bg-white/5 px-1 py-0.5 rounded border border-white/5">
-              Enter
-              <CornerDownLeft size={8} />
-            </span>
+            {/* Screen Capture OCR Trigger */}
+            <button
+              onClick={handleCaptureScreen}
+              disabled={isCapturingScreen || isGenerating}
+              title="Capture Screen & Run OCR"
+              className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${
+                isCapturingScreen
+                  ? 'text-indigo-400 bg-white/5 animate-spin'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Camera size={12} />
+            </button>
+
+            {/* Microphone Voice Assistant Trigger */}
+            <button
+              onClick={toggleRecording}
+              disabled={isGenerating}
+              title="Toggle Voice Assistant (Ctrl+Shift+V)"
+              className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${
+                isRecording
+                  ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30 animate-pulse'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {isRecording ? <MicOff size={12} /> : <Mic size={12} />}
+            </button>
+
+            {/* Send Button */}
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isGenerating}
-              className={`p-1.5 rounded-lg transition-all duration-200 ${
-                input.trim() && !isGenerating
+              aria-label="Send Message"
+              disabled={(!input.trim() && !ocrText) || isGenerating}
+              className={`p-1 rounded-lg transition-all duration-200 cursor-pointer ${
+                (input.trim() || ocrText) && !isGenerating
                   ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/20'
                   : 'text-gray-500 cursor-not-allowed'
               }`}
