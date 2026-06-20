@@ -85,14 +85,14 @@ export const OverlayWidget: React.FC<OverlayWidgetProps> = ({
       className={`h-screen flex flex-col rounded-2xl overflow-hidden transition-all duration-300 ${getGlassClass()}`}
       style={getGlassStyle()}
     >
-      {/* Header bar (Draggable) */}
+      {/* Header bar (Draggable) — always visible regardless of window opacity */}
       <div
         className="flex items-center justify-between px-3.5 py-2.5 border-b select-none cursor-move"
         style={{
           WebkitAppRegion: 'drag',
           pointerEvents: 'auto',
-          backgroundColor: `rgba(255, 255, 255, ${opacity * 0.05})`,
-          borderBottomColor: `rgba(255, 255, 255, ${opacity * 0.1})`
+          backgroundColor: `rgba(15, 15, 30, ${Math.max(opacity * 0.3, 0.75)})`,
+          borderBottomColor: `rgba(255, 255, 255, ${Math.max(opacity * 0.1, 0.12)})`
         } as any}
       >
         <div className="flex items-center gap-1.5 select-none">

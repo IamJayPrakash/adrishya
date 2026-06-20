@@ -850,10 +850,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         style={{
           transform: isVoiceLoopHovered ? 'translateX(0)' : 'translateX(-270px)',
           transition: 'transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-          willChange: 'transform',
-          opacity: Math.min(Math.max(opacity * 0.95 + 0.05, 0.1), 1)
+          willChange: 'transform'
         }}
-        className="absolute left-0 bottom-[95px] z-50 flex items-center w-[310px] h-10 rounded-r-xl border border-indigo-500/25 bg-indigo-950/90 backdrop-blur-md shadow-xl select-none cursor-pointer"
+        className="absolute left-0 bottom-[95px] z-50 flex items-center w-[310px] h-10 rounded-r-xl border border-indigo-500/40 bg-indigo-950 shadow-xl shadow-indigo-950/50 select-none cursor-pointer"
       >
         {/* Left: Expanded Controls (fade in/out when hovered) */}
         <div
