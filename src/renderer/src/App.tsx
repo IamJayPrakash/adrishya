@@ -46,12 +46,12 @@ function App(): React.JSX.Element {
 
   // Load Settings from LocalStorage on mount
   useEffect(() => {
-    // API Keys
-    setOpenaiKey(localStorage.getItem('adr_openai_key') || '')
-    setGeminiKey(localStorage.getItem('adr_gemini_key') || '')
-    setClaudeKey(localStorage.getItem('adr_claude_key') || '')
-    setGroqKey(localStorage.getItem('adr_groq_key') || '')
-    setGrokKey(localStorage.getItem('adr_grok_key') || '')
+    // API Keys (with fallback to environment variables in dev/local setups)
+    setOpenaiKey(localStorage.getItem('adr_openai_key') || (import.meta.env.VITE_OPENAI_API_KEY as string) || '')
+    setGeminiKey(localStorage.getItem('adr_gemini_key') || (import.meta.env.VITE_GEMINI_API_KEY as string) || '')
+    setClaudeKey(localStorage.getItem('adr_claude_key') || (import.meta.env.VITE_CLAUDE_API_KEY as string) || '')
+    setGroqKey(localStorage.getItem('adr_groq_key') || (import.meta.env.VITE_GROQ_API_KEY as string) || '')
+    setGrokKey(localStorage.getItem('adr_grok_key') || (import.meta.env.VITE_GROK_API_KEY as string) || '')
 
     // Active configuration
     setActiveProvider((localStorage.getItem('adr_active_provider') as any) || 'gemini')
@@ -94,7 +94,10 @@ function App(): React.JSX.Element {
     localStorage.setItem('adr_screen_protection', String(screenProtection))
   }, [screenProtection])
 
-  // Save Config parameters to LocalStorage
+  /**
+   * Saves the customized UI settings and API keys to LocalStorage
+   * and closes the settings page to return to the active assistant chat panel.
+   */
   const handleSaveSettings = () => {
     localStorage.setItem('adr_openai_key', openaiKey)
     localStorage.setItem('adr_gemini_key', geminiKey)
@@ -119,7 +122,11 @@ function App(): React.JSX.Element {
     setMode('chat')
   }
 
-  // Retrieve current active credentials & model
+  /**
+   * Retrieves the current API key and model identifier according to
+   * the currently selected active AI Provider.
+   * @returns {{ key: string, model: string }} active credentials object
+   */
   const getActiveConfig = () => {
     let key = ''
     let model = ''
@@ -150,7 +157,11 @@ function App(): React.JSX.Element {
     return { key, model }
   }
 
-  // Trigger AI completions via Electron IPC
+  /**
+   * Submits the user prompt to the active AI Provider by triggering
+   * an Electron IPC completion call, updates messages thread, and manages loading states.
+   * @param {string} promptText user query or OCR code snippet
+   */
   const handleSendPrompt = async (promptText: string) => {
     const { key, model } = getActiveConfig()
     

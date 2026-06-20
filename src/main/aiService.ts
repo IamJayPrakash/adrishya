@@ -19,7 +19,14 @@ interface TranscribeRequest {
   fileName: string
 }
 
-// Handler for AI completions
+/**
+ * Routing logic for executing text completion requests to configured AI providers.
+ * Supports OpenAI, Google Gemini, Anthropic Claude, Groq Llama, and xAI Grok.
+ * Runs in the Node main process, bypassing Chromium CORS restrictions.
+ * 
+ * @param {AIRequest} req request details containing provider name, api keys, and model
+ * @returns {Promise<string>} text response from the AI model
+ */
 async function handleAICompletion(req: AIRequest): Promise<string> {
   const { provider, apiKey, model, messages } = req
 
@@ -158,7 +165,13 @@ async function handleAICompletion(req: AIRequest): Promise<string> {
   }
 }
 
-// Handler for audio transcription
+/**
+ * Receives WebM audio buffers from the renderer, builds a secure native FormData upload,
+ * and executes Whisper transcriptions through OpenAI or Groq API endpoints.
+ * 
+ * @param {TranscribeRequest} req transcription settings and audio file buffer
+ * @returns {Promise<string>} transcribed text transcript
+ */
 async function handleAudioTranscription(req: TranscribeRequest): Promise<string> {
   const { provider, apiKey, audioBuffer, fileName } = req
 
@@ -196,6 +209,10 @@ async function handleAudioTranscription(req: TranscribeRequest): Promise<string>
   }
 }
 
+/**
+ * Registers Electron main process IPC handlers to listen for completion
+ * and transcription calls coming from the isolated renderer frontend.
+ */
 export function initAIServices(): void {
   // Listen for AI completion requests
   ipcMain.handle('call-ai-api', async (_event, req: AIRequest) => {
